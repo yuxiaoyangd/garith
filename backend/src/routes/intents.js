@@ -1,61 +1,56 @@
 const { authenticateToken } = require('../middleware/auth');
 
 // 提交合作意向
-async function submitIntent(fastify, options) {
-    const user = options.request.user;
-    const { id } = options.params;
-    const { offer, expect, contact } = options.body;
+async function submitIntent(request, reply) {
+    const user = request.user;
+    const { id } = request.params;
+    const { offer, expect, contact } = request.body;
     
-    // 检查项目是否存在且状态允许接收意向
-    const project = fastify.db.prepare('SELECT * FROM projects WHERE id = ?').get(id);
+    const project = request.server.db.prepare('SELECT * FROM projects WHERE id = ?').get(id);
     if (!project) {
-        throw fastify.httpErrors.notFound('Project not found');
+        return reply.code(404).send({ error: 'Project not found' });
     }
     
     if (project.status !== 'active') {
-        throw fastify.httpErrors.badRequest('Cannot submit intent to paused or closed projects');
+        return reply.code(400).send({ error: 'Cannot submit intent to paused or closed projects' });
     }
     
-    // 检查用户是否已经提交过意向
-    const existingIntent = fastify.db.prepare(
+    const existingIntent = request.server.db.prepare(
         'SELECT id FROM intents WHERE project_id = ? AND user_id = ?'
     ).get(id, user.id);
     
     if (existingIntent) {
-        throw fastify.httpErrors.badRequest('You have already submitted an intent for this project');
+        return reply.code(400).send({ error: 'You have already submitted an intent for this project' });
     }
     
-    // 不能给自己的项目提交意向
     if (project.owner_id === user.id) {
-        throw fastify.httpErrors.badRequest('Cannot submit intent to your own project');
+        return reply.code(400).send({ error: 'Cannot submit intent to your own project' });
     }
     
-    // 插入合作意向
-    const result = fastify.db.prepare(`
+    const result = request.server.db.prepare(`
         INSERT INTO intents (project_id, user_id, offer, expect, contact)
         VALUES (?, ?, ?, ?, ?)
     `).run(id, user.id, offer, expect, contact);
     
-    return { 
+    return reply.send({ 
         id: result.lastInsertRowid,
         message: 'Intent submitted successfully' 
-    };
+    });
 }
 
 // 获取项目的合作意向（仅项目创建者可见）
-async function getProjectIntents(fastify, options) {
-    const user = options.request.user;
-    const { id } = options.params;
+async function getProjectIntents(request, reply) {
+    const user = request.user;
+    const { id } = request.params;
     
-    // 检查项目是否存在且属于当前用户
-    const project = fastify.db.prepare('SELECT * FROM projects WHERE id = ? AND owner_id = ?')
+    const project = request.server.db.prepare('SELECT * FROM projects WHERE id = ? AND owner_id = ?')
         .get(id, user.id);
     
     if (!project) {
-        throw fastify.httpErrors.notFound('Project not found or access denied');
+        return reply.code(404).send({ error: 'Project not found or access denied' });
     }
     
-    const intents = fastify.db.prepare(`
+    const intents = request.server.db.prepare(`
         SELECT i.*, u.nickname, u.email
         FROM intents i
         JOIN users u ON i.user_id = u.id
@@ -63,37 +58,34 @@ async function getProjectIntents(fastify, options) {
         ORDER BY i.created_at DESC
     `).all(id);
     
-    return intents;
+    return reply.send(intents);
 }
 
 // 更新意向状态（仅项目创建者）
-async function updateIntentStatus(fastify, options) {
-    const user = options.request.user;
-    const { id, intentId } = options.params;
-    const { status } = options.body;
+async function updateIntentStatus(request, reply) {
+    const user = request.user;
+    const { id, intentId } = request.params;
+    const { status } = request.body;
     
-    // 检查项目是否存在且属于当前用户
-    const project = fastify.db.prepare('SELECT * FROM projects WHERE id = ? AND owner_id = ?')
+    const project = request.server.db.prepare('SELECT * FROM projects WHERE id = ? AND owner_id = ?')
         .get(id, user.id);
     
     if (!project) {
-        throw fastify.httpErrors.notFound('Project not found or access denied');
+        return reply.code(404).send({ error: 'Project not found or access denied' });
     }
     
-    // 检查意向是否存在且属于该项目
-    const intent = fastify.db.prepare(
+    const intent = request.server.db.prepare(
         'SELECT * FROM intents WHERE id = ? AND project_id = ?'
     ).get(intentId, id);
     
     if (!intent) {
-        throw fastify.httpErrors.notFound('Intent not found');
+        return reply.code(404).send({ error: 'Intent not found' });
     }
     
-    // 更新意向状态
-    fastify.db.prepare('UPDATE intents SET status = ? WHERE id = ?')
+    request.server.db.prepare('UPDATE intents SET status = ? WHERE id = ?')
         .run(status, intentId);
     
-    return { message: 'Intent status updated successfully' };
+    return reply.send({ message: 'Intent status updated successfully' });
 }
 
 async function intentRoutes(fastify, options) {

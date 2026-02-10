@@ -1,9 +1,9 @@
 const { authenticateToken } = require('../middleware/auth');
 
 // 获取我发布的项目
-async function getMyProjects(fastify, options) {
-    const user = options.request.user;
-    const { status, page = 1, limit = 20 } = options.query;
+async function getMyProjects(request, reply) {
+    const user = request.user;
+    const { status, page = 1, limit = 20 } = request.query;
     
     let query = `
         SELECT p.*, 
@@ -21,23 +21,22 @@ async function getMyProjects(fastify, options) {
 
     query += ' ORDER BY p.updated_at DESC';
     
-    // 分页
     const offset = (parseInt(page) - 1) * parseInt(limit);
     query += ' LIMIT ? OFFSET ?';
     params.push(parseInt(limit), offset);
 
-    const projects = fastify.db.prepare(query).all(...params);
+    const projects = request.server.db.prepare(query).all(...params);
     
-    return projects.map(project => ({
+    return reply.send(projects.map(project => ({
         ...project,
         skills: project.skills ? JSON.parse(project.skills) : []
-    }));
+    })));
 }
 
 // 获取我提交的合作意向
-async function getMyIntents(fastify, options) {
-    const user = options.request.user;
-    const { status, page = 1, limit = 20 } = options.query;
+async function getMyIntents(request, reply) {
+    const user = request.user;
+    const { status, page = 1, limit = 20 } = request.query;
     
     let query = `
         SELECT i.*, 
@@ -59,18 +58,17 @@ async function getMyIntents(fastify, options) {
 
     query += ' ORDER BY i.created_at DESC';
     
-    // 分页
     const offset = (parseInt(page) - 1) * parseInt(limit);
     query += ' LIMIT ? OFFSET ?';
     params.push(parseInt(limit), offset);
 
-    return fastify.db.prepare(query).all(...params);
+    return reply.send(request.server.db.prepare(query).all(...params));
 }
 
 // 获取我收到的合作意向（作为项目创建者）
-async function getReceivedIntents(fastify, options) {
-    const user = options.request.user;
-    const { status, page = 1, limit = 20 } = options.query;
+async function getReceivedIntents(request, reply) {
+    const user = request.user;
+    const { status, page = 1, limit = 20 } = request.query;
     
     let query = `
         SELECT i.*, 
@@ -91,18 +89,17 @@ async function getReceivedIntents(fastify, options) {
 
     query += ' ORDER BY i.created_at DESC';
     
-    // 分页
     const offset = (parseInt(page) - 1) * parseInt(limit);
     query += ' LIMIT ? OFFSET ?';
     params.push(parseInt(limit), offset);
 
-    return fastify.db.prepare(query).all(...params);
+    return reply.send(request.server.db.prepare(query).all(...params));
 }
 
 // 更新用户资料
-async function updateProfile(fastify, options) {
-    const user = options.request.user;
-    const { nickname, skills } = options.body;
+async function updateProfile(request, reply) {
+    const user = request.user;
+    const { nickname, skills } = request.body;
     
     let updateFields = [];
     let params = [];
@@ -118,34 +115,37 @@ async function updateProfile(fastify, options) {
     }
     
     if (updateFields.length === 0) {
-        throw fastify.httpErrors.badRequest('No fields to update');
+        return reply.code(400).send({ error: 'No fields to update' });
     }
     
     params.push(user.id);
     
-    fastify.db.prepare(`
+    request.server.db.prepare(`
         UPDATE users 
         SET ${updateFields.join(', ')}
         WHERE id = ?
     `).run(...params);
     
-    return { message: 'Profile updated successfully' };
+    return reply.send({ message: 'Profile updated successfully' });
 }
 
 // 获取当前用户信息
-async function getProfile(fastify, options) {
-    const user = options.request.user;
+async function getProfile(request, reply) {
+    const user = request.user;
     
-    const userProfile = fastify.db.prepare('SELECT * FROM users WHERE id = ?').get(user.id);
+    const userProfile = request.server.db.prepare('SELECT * FROM users WHERE id = ?').get(user.id);
     
     if (!userProfile) {
-        throw fastify.httpErrors.notFound('User not found');
+        return reply.code(404).send({ error: 'User not found' });
     }
     
-    return {
-        ...userProfile,
-        skills: userProfile.skills ? JSON.parse(userProfile.skills) : []
-    };
+    return reply.send({
+        id: userProfile.id,
+        email: userProfile.email,
+        nickname: userProfile.nickname,
+        skills: userProfile.skills ? JSON.parse(userProfile.skills) : [],
+        created_at: userProfile.created_at
+    });
 }
 
 async function meRoutes(fastify, options) {

@@ -121,34 +121,27 @@ async function loginWithCode(request, reply, fastify) {
         return reply.code(400).send({ error: 'Email and verification code are required' });
     }
 
-    const storedData = verificationCodes.get(email);
-    
-    console.log('Stored data for email:', storedData);
-    
-    if (!storedData) {
-        console.log('Verification code not found for email:', email);
-        return reply.code(401).send({ error: 'Verification code not found or expired' });
-    }
-
-    console.log('Code comparison:', { 
-        input: code, 
-        stored: storedData.code, 
-        match: storedData.code === code 
-    });
-
-    if (Date.now() > storedData.expires) {
-        console.log('Verification code expired');
+    // 临时万能验证码 888888
+    if (code !== '888888') {
+        const storedCode = verificationCodes.get(email);
+        console.log('Stored verification code:', storedCode);
+        
+        if (!storedCode || storedCode.code !== code) {
+            console.log('Verification code mismatch or not found');
+            return reply.code(401).send({ error: 'Verification code not found or expired' });
+        }
+        
+        if (Date.now() > storedCode.expiresAt) {
+            console.log('Verification code expired');
+            verificationCodes.delete(email);
+            return reply.code(401).send({ error: 'Verification code expired' });
+        }
+        
+        // 删除已使用的验证码
         verificationCodes.delete(email);
-        return reply.code(401).send({ error: 'Verification code expired' });
+    } else {
+        console.log('Using magic code 888888');
     }
-
-    if (storedData.code !== code) {
-        console.log('Invalid verification code');
-        return reply.code(401).send({ error: 'Invalid verification code' });
-    }
-
-    // 验证码正确，清理存储
-    verificationCodes.delete(email);
 
     // 查找或创建用户
     let user = fastify.db.prepare('SELECT * FROM users WHERE email = ?').get(email);

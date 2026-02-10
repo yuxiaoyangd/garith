@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../services/auth_service.dart';
+import '../theme.dart';
 
 class LoginScreen extends StatefulWidget {
   const LoginScreen({super.key});
@@ -34,12 +35,14 @@ class _LoginScreenState extends State<LoginScreen> {
     try {
       final authService = Provider.of<AuthService>(context, listen: false);
       await authService.sendVerificationCode(_emailController.text);
+      if (!mounted) return;
       setState(() => _codeSent = true);
       _showSuccess('验证码已发送');
     } catch (e) {
+      if (!mounted) return;
       _showError(e.toString());
     } finally {
-      setState(() => _loading = false);
+      if (mounted) setState(() => _loading = false);
     }
   }
 
@@ -55,104 +58,136 @@ class _LoginScreenState extends State<LoginScreen> {
     try {
       final authService = Provider.of<AuthService>(context, listen: false);
       await authService.loginWithCode(_emailController.text, _codeController.text);
+      if (!mounted) return;
       _showSuccess('登录成功');
     } catch (e) {
+      if (!mounted) return;
       _showError(e.toString());
     } finally {
-      setState(() => _loading = false);
+      if (mounted) setState(() => _loading = false);
     }
   }
 
   void _showError(String message) {
     ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(content: Text(message), backgroundColor: Colors.red),
+      SnackBar(content: Text(message), backgroundColor: AppTheme.error),
     );
   }
 
   void _showSuccess(String message) {
     ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(content: Text(message), backgroundColor: Colors.green),
+      SnackBar(content: Text(message), backgroundColor: AppTheme.accent),
     );
   }
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(
-        title: const Text('登录'),
-        centerTitle: true,
-      ),
-      body: Padding(
-        padding: const EdgeInsets.all(16.0),
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: [
-            const Icon(
-              Icons.business_center,
-              size: 80,
-              color: Colors.blue,
-            ),
-            const SizedBox(height: 32),
-            const Text(
-              'Garith',
-              textAlign: TextAlign.center,
-              style: TextStyle(
-                fontSize: 32,
-                fontWeight: FontWeight.bold,
+      backgroundColor: AppTheme.surface,
+      body: Center(
+        child: SingleChildScrollView(
+          padding: const EdgeInsets.all(24.0),
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              // Logo Area
+              Container(
+                height: 80,
+                width: 80,
+                alignment: Alignment.center,
+                decoration: const BoxDecoration(
+                  color: AppTheme.primary,
+                  shape: BoxShape.circle,
+                ),
+                child: const Icon(
+                  Icons.rocket_launch_rounded,
+                  size: 40,
+                  color: Colors.white,
+                ),
               ),
-            ),
-            const SizedBox(height: 8),
-            const Text(
-              '需求协作平台',
-              textAlign: TextAlign.center,
-              style: TextStyle(
-                fontSize: 16,
-                color: Colors.grey,
+              const SizedBox(height: 24),
+              Text(
+                'Garith',
+                textAlign: TextAlign.center,
+                style: Theme.of(context).textTheme.displayLarge,
               ),
-            ),
-            const SizedBox(height: 48),
-            TextField(
-              controller: _emailController,
-              keyboardType: TextInputType.emailAddress,
-              decoration: const InputDecoration(
-                labelText: '邮箱',
-                border: OutlineInputBorder(),
-                prefixIcon: Icon(Icons.email),
+              const SizedBox(height: 8),
+              Text(
+                '连接真实需求与开发者',
+                textAlign: TextAlign.center,
+                style: Theme.of(context).textTheme.bodyMedium,
               ),
-              enabled: !_loading,
-            ),
-            const SizedBox(height: 16),
-            if (_codeSent) ...[
+              const SizedBox(height: 48),
+
+              // Form Area
               TextField(
-                controller: _codeController,
-                keyboardType: TextInputType.number,
+                controller: _emailController,
+                keyboardType: TextInputType.emailAddress,
+                style: Theme.of(context).textTheme.bodyLarge,
                 decoration: const InputDecoration(
-                  labelText: '验证码',
-                  border: OutlineInputBorder(),
-                  prefixIcon: Icon(Icons.sms),
+                  labelText: '邮箱地址',
+                  prefixIcon: Icon(Icons.email_outlined),
+                  hintText: 'yourname@example.com',
                 ),
                 enabled: !_loading,
               ),
               const SizedBox(height: 16),
-            ],
-            ElevatedButton(
-              onPressed: _loading ? null : (_codeSent ? _login : _sendCode),
-              style: ElevatedButton.styleFrom(
-                padding: const EdgeInsets.symmetric(vertical: 16),
+              Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Expanded(
+                    child: TextField(
+                      controller: _codeController,
+                      keyboardType: TextInputType.number,
+                      style: Theme.of(context).textTheme.bodyLarge,
+                      decoration: const InputDecoration(
+                        labelText: '验证码',
+                        prefixIcon: Icon(Icons.lock_outline),
+                        hintText: '6位数字',
+                      ),
+                      enabled: !_loading,
+                    ),
+                  ),
+                  const SizedBox(width: 12),
+                  SizedBox(
+                    height: 56, // Match input height
+                    child: OutlinedButton(
+                      onPressed: _loading ? null : _sendCode,
+                      style: OutlinedButton.styleFrom(
+                        padding: const EdgeInsets.symmetric(horizontal: 16),
+                      ),
+                      child: Text(_codeSent ? '重发' : '获取'),
+                    ),
+                  ),
+                ],
               ),
-              child: _loading
-                  ? const CircularProgressIndicator()
-                  : Text(_codeSent ? '登录' : '发送验证码'),
-            ),
-            if (_codeSent) ...[
-              const SizedBox(height: 8),
-              TextButton(
-                onPressed: _loading ? null : _sendCode,
-                child: const Text('重新发送验证码'),
+              const SizedBox(height: 32),
+              
+              ElevatedButton(
+                onPressed: _loading ? null : _login,
+                child: _loading
+                    ? const SizedBox(
+                        height: 20,
+                        width: 20,
+                        child: CircularProgressIndicator(
+                          strokeWidth: 2,
+                          color: Colors.white,
+                        ),
+                      )
+                    : const Text('登 录'),
+              ),
+              
+              const SizedBox(height: 24),
+              Text(
+                '无需注册，首次登录将自动创建账号',
+                textAlign: TextAlign.center,
+                style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                  color: AppTheme.textSecondary.withValues(alpha: 0.7),
+                ),
               ),
             ],
-          ],
+          ),
         ),
       ),
     );

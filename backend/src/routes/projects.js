@@ -1,8 +1,8 @@
 const { authenticateToken } = require('../middleware/auth');
 
 // 获取项目列表
-async function getProjects(fastify, options) {
-    const { field, type, stage, status = 'active', page = 1, limit = 20 } = options.query;
+async function getProjects(request, reply) {
+    const { field, type, stage, status = 'active', page = 1, limit = 20 } = request.query;
     
     let query = `
         SELECT p.*, u.nickname as owner_nickname, u.email as owner_email
@@ -26,27 +26,26 @@ async function getProjects(fastify, options) {
     }
 
     // 按更新时间排序，超过30天的自动下沉
-    query += ' ORDER BY CASE WHEN p.updated_at < datetime("now", "-30 days") THEN 2 ELSE 1 END, p.updated_at DESC';
+    query += ' ORDER BY CASE WHEN p.updated_at < datetime(\'now\', \'-30 days\') THEN 2 ELSE 1 END, p.updated_at DESC';
     
     // 分页
     const offset = (parseInt(page) - 1) * parseInt(limit);
     query += ' LIMIT ? OFFSET ?';
     params.push(parseInt(limit), offset);
 
-    const projects = fastify.db.prepare(query).all(...params);
+    const projects = request.server.db.prepare(query).all(...params);
     
-    // 转换skills字段
-    return projects.map(project => ({
+    return reply.send(projects.map(project => ({
         ...project,
         skills: project.skills ? JSON.parse(project.skills) : []
-    }));
+    })));
 }
 
 // 获取项目详情
-async function getProjectById(fastify, options) {
-    const { id } = options.params;
+async function getProjectById(request, reply) {
+    const { id } = request.params;
     
-    const project = fastify.db.prepare(`
+    const project = request.server.db.prepare(`
         SELECT p.*, u.nickname as owner_nickname, u.email as owner_email
         FROM projects p
         JOIN users u ON p.owner_id = u.id
@@ -54,57 +53,72 @@ async function getProjectById(fastify, options) {
     `).get(id);
     
     if (!project) {
-        throw fastify.httpErrors.notFound('Project not found');
+        return reply.code(404).send({ error: 'Project not found' });
     }
 
     // 获取项目进度
-    const progress = fastify.db.prepare(`
+    const progress = request.server.db.prepare(`
         SELECT * FROM progress 
         WHERE project_id = ? 
         ORDER BY created_at DESC
     `).all(id);
 
-    return {
+    return reply.send({
         ...project,
         skills: project.skills ? JSON.parse(project.skills) : [],
         progress
-    };
+    });
 }
 
 // 创建项目
-async function createProject(fastify, options) {
-    const user = options.request.user;
-    const { title, type, field, stage, blocker, help_type, is_public_progress } = options.body;
+async function createProject(request, reply) {
+    const user = request.user;
+    const { title, type, field, stage, blocker, help_type, is_public_progress } = request.body;
     
-    const result = fastify.db.prepare(`
+    const result = request.server.db.prepare(`
         INSERT INTO projects (title, type, field, stage, blocker, help_type, is_public_progress, owner_id)
         VALUES (?, ?, ?, ?, ?, ?, ?, ?)
-    `).run(title, type, field, stage, blocker, help_type, is_public_progress || 1, user.id);
+    `).run(title, type, field, stage, blocker || null, help_type || null, (is_public_progress ? 1 : 0), user.id);
     
-    return { 
+    return reply.send({ 
         id: result.lastInsertRowid,
         message: 'Project created successfully' 
-    };
+    });
 }
 
 // 更新项目状态
-async function updateProjectStatus(fastify, options) {
-    const user = options.request.user;
-    const { id } = options.params;
-    const { status } = options.body;
+async function updateProjectStatus(request, reply) {
+    const user = request.user;
+    const { id } = request.params;
+    const { status } = request.body;
     
     // 检查项目是否存在且属于当前用户
-    const project = fastify.db.prepare('SELECT * FROM projects WHERE id = ? AND owner_id = ?')
+    const project = request.server.db.prepare('SELECT * FROM projects WHERE id = ? AND owner_id = ?')
         .get(id, user.id);
     
     if (!project) {
-        throw fastify.httpErrors.notFound('Project not found or access denied');
+        return reply.code(404).send({ error: 'Project not found' });
     }
     
-    fastify.db.prepare('UPDATE projects SET status = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?')
+    request.server.db.prepare('UPDATE projects SET status = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?')
         .run(status, id);
     
-    return { message: 'Project status updated successfully' };
+    return reply.send({ message: 'Project status updated successfully' });
+}
+
+// 删除项目
+async function deleteProject(request, reply) {
+    const user = request.user;
+    const { id } = request.params;
+    
+    const result = request.server.db.prepare('DELETE FROM projects WHERE id = ? AND owner_id = ?')
+        .run(id, user.id);
+        
+    if (result.changes === 0) {
+        return reply.code(404).send({ error: 'Project not found or unauthorized' });
+    }
+    
+    return reply.send({ message: 'Project deleted successfully' });
 }
 
 async function projectRoutes(fastify, options) {
@@ -115,7 +129,7 @@ async function projectRoutes(fastify, options) {
                 type: 'object',
                 properties: {
                     field: { type: 'string' },
-                    type: { type: 'string', enum: ['需求', '合伙', '外包'] },
+                    type: { type: 'string', enum: ['需求', '合伙', '外包', '能力'] },
                     stage: { type: 'string', enum: ['想法', '原型', '开发中', '已上线'] },
                     status: { type: 'string', enum: ['active', 'paused', 'closed'] },
                     page: { type: 'integer', minimum: 1 },
@@ -147,7 +161,7 @@ async function projectRoutes(fastify, options) {
                 required: ['title', 'type', 'field', 'stage'],
                 properties: {
                     title: { type: 'string', minLength: 1, maxLength: 200 },
-                    type: { type: 'string', enum: ['需求', '合伙', '外包'] },
+                    type: { type: 'string', enum: ['需求', '合伙', '外包', '能力'] },
                     field: { type: 'string', minLength: 1 },
                     stage: { type: 'string', enum: ['想法', '原型', '开发中', '已上线'] },
                     blocker: { type: 'string' },
@@ -178,6 +192,20 @@ async function projectRoutes(fastify, options) {
             }
         }
     }, updateProjectStatus);
+
+    // 删除项目（需要登录）
+    fastify.delete('/:id', {
+        preHandler: authenticateToken,
+        schema: {
+            params: {
+                type: 'object',
+                required: ['id'],
+                properties: {
+                    id: { type: 'integer' }
+                }
+            }
+        }
+    }, deleteProject);
 }
 
 module.exports = projectRoutes;

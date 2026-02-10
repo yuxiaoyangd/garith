@@ -3,16 +3,14 @@ import 'package:provider/provider.dart';
 import 'services/auth_service.dart';
 import 'screens/home_screen.dart';
 import 'screens/login_screen.dart';
+import 'theme.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
   
-  final authService = AuthService();
-  await authService.init();
-  
   runApp(
-    ChangeNotifierProvider.value(
-      value: authService,
+    ChangeNotifierProvider(
+      create: (context) => AuthService()..init(),
       child: const GarithApp(),
     ),
   );
@@ -25,15 +23,8 @@ class GarithApp extends StatelessWidget {
   Widget build(BuildContext context) {
     return MaterialApp(
       title: 'Garith',
-      theme: ThemeData(
-        primarySwatch: Colors.blue,
-        useMaterial3: true,
-        appBarTheme: const AppBarTheme(
-          backgroundColor: Colors.white,
-          foregroundColor: Colors.black87,
-          elevation: 1,
-        ),
-      ),
+      debugShowCheckedModeBanner: false,
+      theme: AppTheme.lightTheme,
       home: Consumer<AuthService>(
         builder: (context, authService, child) {
           return authService.isLoggedIn ? const HomeScreen() : const LoginScreen();

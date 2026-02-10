@@ -4,6 +4,16 @@ import '../models/user.dart';
 import '../models/project.dart';
 import '../models/intent.dart';
 
+class ApiException implements Exception {
+  final int statusCode;
+  final String message;
+
+  ApiException(this.statusCode, this.message);
+
+  @override
+  String toString() => message;
+}
+
 class ApiService {
   // 使用实际IP地址，确保Android模拟器可以连接
   static const String baseUrl = String.fromEnvironment(
@@ -27,6 +37,23 @@ class ApiService {
     if (_token != null) 'Authorization': 'Bearer $_token',
   };
 
+  String _errorMessage(http.Response response) {
+    try {
+      final decoded = jsonDecode(response.body);
+      if (decoded is Map<String, dynamic>) {
+        final err = decoded['error'];
+        if (err is String && err.isNotEmpty) return err;
+      }
+    } catch (_) {
+      // ignore
+    }
+    return 'Request failed (${response.statusCode})';
+  }
+
+  Never _throwFor(http.Response response) {
+    throw ApiException(response.statusCode, _errorMessage(response));
+  }
+
   // 认证相关
   Future<Map<String, dynamic>> sendVerificationCode(String email) async {
     final response = await http.post(
@@ -35,11 +62,8 @@ class ApiService {
       body: jsonEncode({'email': email}),
     );
     
-    if (response.statusCode == 200) {
-      return jsonDecode(response.body);
-    } else {
-      throw Exception(jsonDecode(response.body)['error'] ?? 'Failed to send code');
-    }
+    if (response.statusCode == 200) return jsonDecode(response.body);
+    _throwFor(response);
   }
 
   Future<Map<String, dynamic>> loginWithCode(String email, String code) async {
@@ -53,9 +77,8 @@ class ApiService {
       final data = jsonDecode(response.body);
       setToken(data['token']);
       return data;
-    } else {
-      throw Exception(jsonDecode(response.body)['error'] ?? 'Login failed');
     }
+    _throwFor(response);
   }
 
   // 项目相关
@@ -83,9 +106,8 @@ class ApiService {
     if (response.statusCode == 200) {
       final List<dynamic> data = jsonDecode(response.body);
       return data.map((json) => Project.fromJson(json)).toList();
-    } else {
-      throw Exception('Failed to load projects');
     }
+    _throwFor(response);
   }
 
   Future<Project> getProjectById(int id) async {
@@ -94,11 +116,8 @@ class ApiService {
       headers: _headers,
     );
     
-    if (response.statusCode == 200) {
-      return Project.fromJson(jsonDecode(response.body));
-    } else {
-      throw Exception('Failed to load project');
-    }
+    if (response.statusCode == 200) return Project.fromJson(jsonDecode(response.body));
+    _throwFor(response);
   }
 
   Future<Map<String, dynamic>> createProject({
@@ -124,11 +143,8 @@ class ApiService {
       }),
     );
     
-    if (response.statusCode == 200) {
-      return jsonDecode(response.body);
-    } else {
-      throw Exception(jsonDecode(response.body)['error'] ?? 'Failed to create project');
-    }
+    if (response.statusCode == 200) return jsonDecode(response.body);
+    _throwFor(response);
   }
 
   Future<Map<String, dynamic>> updateProjectStatus(int id, String status) async {
@@ -138,11 +154,18 @@ class ApiService {
       body: jsonEncode({'status': status}),
     );
     
-    if (response.statusCode == 200) {
-      return jsonDecode(response.body);
-    } else {
-      throw Exception(jsonDecode(response.body)['error'] ?? 'Failed to update project');
-    }
+    if (response.statusCode == 200) return jsonDecode(response.body);
+    _throwFor(response);
+  }
+
+  Future<void> deleteProject(int id) async {
+    final response = await http.delete(
+      Uri.parse('$baseUrl/projects/$id'),
+      headers: _headers,
+    );
+    
+    if (response.statusCode == 200) return;
+    _throwFor(response);
   }
 
   // 进度相关
@@ -156,11 +179,8 @@ class ApiService {
       }),
     );
     
-    if (response.statusCode == 200) {
-      return jsonDecode(response.body);
-    } else {
-      throw Exception(jsonDecode(response.body)['error'] ?? 'Failed to add progress');
-    }
+    if (response.statusCode == 200) return jsonDecode(response.body);
+    _throwFor(response);
   }
 
   // 合作意向相关
@@ -179,11 +199,8 @@ class ApiService {
       }),
     );
     
-    if (response.statusCode == 200) {
-      return jsonDecode(response.body);
-    } else {
-      throw Exception(jsonDecode(response.body)['error'] ?? 'Failed to submit intent');
-    }
+    if (response.statusCode == 200) return jsonDecode(response.body);
+    _throwFor(response);
   }
 
   Future<List<Intent>> getProjectIntents(int projectId) async {
@@ -195,9 +212,19 @@ class ApiService {
     if (response.statusCode == 200) {
       final List<dynamic> data = jsonDecode(response.body);
       return data.map((json) => Intent.fromJson(json)).toList();
-    } else {
-      throw Exception('Failed to load intents');
     }
+    _throwFor(response);
+  }
+
+  Future<void> updateIntentStatus(int projectId, int intentId, String status) async {
+    final response = await http.patch(
+      Uri.parse('$baseUrl/intents/$projectId/$intentId/status'),
+      headers: _headers,
+      body: jsonEncode({'status': status}),
+    );
+    
+    if (response.statusCode == 200) return;
+    _throwFor(response);
   }
 
   // 个人中心相关
@@ -215,9 +242,8 @@ class ApiService {
     if (response.statusCode == 200) {
       final List<dynamic> data = jsonDecode(response.body);
       return data.map((json) => Project.fromJson(json)).toList();
-    } else {
-      throw Exception('Failed to load my projects');
     }
+    _throwFor(response);
   }
 
   Future<List<Intent>> getMyIntents({String? status, int page = 1, int limit = 20}) async {
@@ -234,9 +260,8 @@ class ApiService {
     if (response.statusCode == 200) {
       final List<dynamic> data = jsonDecode(response.body);
       return data.map((json) => Intent.fromJson(json)).toList();
-    } else {
-      throw Exception('Failed to load my intents');
     }
+    _throwFor(response);
   }
 
   Future<User> getProfile() async {
@@ -245,11 +270,8 @@ class ApiService {
       headers: _headers,
     );
     
-    if (response.statusCode == 200) {
-      return User.fromJson(jsonDecode(response.body));
-    } else {
-      throw Exception('Failed to load profile');
-    }
+    if (response.statusCode == 200) return User.fromJson(jsonDecode(response.body));
+    _throwFor(response);
   }
 
   Future<Map<String, dynamic>> updateProfile({String? nickname, List<String>? skills}) async {
@@ -262,10 +284,7 @@ class ApiService {
       }),
     );
     
-    if (response.statusCode == 200) {
-      return jsonDecode(response.body);
-    } else {
-      throw Exception(jsonDecode(response.body)['error'] ?? 'Failed to update profile');
-    }
+    if (response.statusCode == 200) return jsonDecode(response.body);
+    _throwFor(response);
   }
 }
