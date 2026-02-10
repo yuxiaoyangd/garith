@@ -88,7 +88,33 @@ async function updateIntentStatus(request, reply) {
     return reply.send({ message: 'Intent status updated successfully' });
 }
 
+// 检查用户是否已提交意向
+async function checkUserIntent(request, reply) {
+    const user = request.user;
+    const { id } = request.params;
+    
+    const intent = request.server.db.prepare(
+        'SELECT id FROM intents WHERE project_id = ? AND user_id = ?'
+    ).get(id, user.id);
+    
+    return reply.send({ hasIntent: !!intent });
+}
+
 async function intentRoutes(fastify, options) {
+    // 检查用户是否已提交意向（需要登录）
+    fastify.get('/:id/check', {
+        preHandler: authenticateToken,
+        schema: {
+            params: {
+                type: 'object',
+                required: ['id'],
+                properties: {
+                    id: { type: 'integer' }
+                }
+            }
+        }
+    }, checkUserIntent);
+
     // 提交合作意向（需要登录）
     fastify.post('/:id', {
         preHandler: authenticateToken,

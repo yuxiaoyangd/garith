@@ -7,6 +7,20 @@ fastify.register(require('@fastify/cors'), {
     credentials: true
 });
 
+// 静态文件服务
+fastify.register(require('@fastify/static'), {
+    root: require('path').join(__dirname, '../uploads'),
+    prefix: '/uploads/'
+});
+
+// 文件上传支持
+fastify.register(require('@fastify/multipart'), {
+    limits: {
+        fileSize: 10 * 1024 * 1024, // 10MB
+        files: 5
+    }
+});
+
 // 注册JWT插件
 fastify.register(require('@fastify/jwt'), {
     secret: process.env.JWT_SECRET || 'your-secret-key-change-in-production'
@@ -23,6 +37,9 @@ fastify.register(require('./routes/auth'), { prefix: '/auth' });
 fastify.register(require('./routes/projects'), { prefix: '/projects' });
 fastify.register(require('./routes/progress'), { prefix: '/progress' });
 fastify.register(require('./routes/intents'), { prefix: '/intents' });
+fastify.register(require('./routes/notifications_routes'), { prefix: '/notifications' });
+fastify.register(require('./routes/users_routes'), { prefix: '/users' });
+fastify.register(require('./routes/upload'), { prefix: '/upload' });
 fastify.register(require('./routes/me'), { prefix: '/me' });
 
 // 健康检查

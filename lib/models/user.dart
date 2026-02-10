@@ -4,6 +4,8 @@ class User {
   final String nickname;
   final List<String> skills;
   final DateTime createdAt;
+  final String? avatarUrl;
+  final String? bio;
 
   User({
     required this.id,
@@ -11,6 +13,8 @@ class User {
     required this.nickname,
     required this.skills,
     required this.createdAt,
+    this.avatarUrl,
+    this.bio,
   });
 
   factory User.fromJson(Map<String, dynamic> json) {
@@ -22,6 +26,8 @@ class User {
       createdAt: json['created_at'] != null
           ? DateTime.parse(json['created_at'])
           : DateTime.now(),
+      avatarUrl: json['avatar_url'],
+      bio: json['bio'],
     );
   }
 
@@ -32,6 +38,8 @@ class User {
       'nickname': nickname,
       'skills': skills,
       'created_at': createdAt.toIso8601String(),
+      'avatar_url': avatarUrl,
+      'bio': bio,
     };
   }
 }

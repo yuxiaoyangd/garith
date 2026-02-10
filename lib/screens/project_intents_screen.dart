@@ -81,7 +81,9 @@ class _ProjectIntentsScreenState extends State<ProjectIntentsScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
+      backgroundColor: AppTheme.background,
       appBar: AppBar(
+        backgroundColor: AppTheme.surface,
         title: Text(widget.projectTitle),
         bottom: PreferredSize(
           preferredSize: const Size.fromHeight(20),

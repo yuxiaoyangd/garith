@@ -111,7 +111,9 @@ class _MyProjectsScreenState extends State<MyProjectsScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
+      backgroundColor: AppTheme.background,
       appBar: AppBar(
+        backgroundColor: AppTheme.surface,
         title: const Text('我的项目'),
       ),
       body: Column(

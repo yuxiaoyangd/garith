@@ -29,7 +29,8 @@ async function getMyProjects(request, reply) {
     
     return reply.send(projects.map(project => ({
         ...project,
-        skills: project.skills ? JSON.parse(project.skills) : []
+        skills: project.skills ? JSON.parse(project.skills) : [],
+        images: project.images ? JSON.parse(project.images) : []
     })));
 }
 
@@ -144,7 +145,9 @@ async function getProfile(request, reply) {
         email: userProfile.email,
         nickname: userProfile.nickname,
         skills: userProfile.skills ? JSON.parse(userProfile.skills) : [],
-        created_at: userProfile.created_at
+        created_at: userProfile.created_at,
+        avatar_url: userProfile.avatar_url,
+        bio: userProfile.bio
     });
 }
 

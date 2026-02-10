@@ -1,47 +1,100 @@
-import 'package:flutter/material.dart';
+﻿import 'package:flutter/material.dart';
+import 'package:flutter/foundation.dart';
 import 'package:provider/provider.dart';
 import '../services/auth_service.dart';
 import '../models/project.dart';
-import '../screens/project_detail_screen.dart';
-import '../screens/profile_screen.dart';
-import '../screens/create_project_screen.dart';
-import '../screens/my_projects_screen.dart';
+import '../widgets/project_card.dart'; 
 import '../theme.dart';
+import '../constants.dart';
+import 'notifications_screen.dart'; 
 
-class HomeScreen extends StatefulWidget {
-  const HomeScreen({super.key});
+class ModernHomeScreen extends StatefulWidget {
+  final ValueListenable<int>? refreshListenable;
+
+  const ModernHomeScreen({super.key, this.refreshListenable});
 
   @override
-  State<HomeScreen> createState() => _HomeScreenState();
+  State<ModernHomeScreen> createState() => _ModernHomeScreenState();
 }
 
-class _HomeScreenState extends State<HomeScreen> {
+class _ModernHomeScreenState extends State<ModernHomeScreen> with SingleTickerProviderStateMixin {
+  late TabController _tabController;
+  late final String _allLabel;
+  VoidCallback? _refreshListener;
+  
+  // 筛选状态
+  String _selectedField = '全部';
+  String _selectedType = '全部';
+  String _selectedStage = '全部';
+  String _searchQuery = '';
+  
   List<Project> _projects = [];
   bool _loading = true;
-  String _selectedField = '';
-  String _selectedType = '';
-  String _selectedStage = '';
-
-  final List<String> _fields = ['全部', 'Web', 'IoT', 'AI', '移动开发', '其他', '开发', '推广', '其它'];
-  final List<String> _types = ['全部', '需求', '合伙', '外包', '能力'];
-  final List<String> _stages = ['全部', '想法', '原型', '开发中', '已上线'];
 
   @override
   void initState() {
     super.initState();
+    _tabController = TabController(length: 2, vsync: this);
+    _allLabel = '全部';
+    if (widget.refreshListenable != null) {
+      _refreshListener = () {
+        _loadProjects();
+      };
+      widget.refreshListenable!.addListener(_refreshListener!);
+    }
+    _tabController.addListener(() {
+      if (_tabController.indexIsChanging) {
+        // 切换Tab时重置筛选并刷新
+        _resetFilters();
+        _loadProjects();
+      }
+    });
     _loadProjects();
   }
 
+  @override
+  void dispose() {
+    if (widget.refreshListenable != null && _refreshListener != null) {
+      widget.refreshListenable!.removeListener(_refreshListener!);
+    }
+    _tabController.dispose();
+    super.dispose();
+  }
+
+  List<String> _withAll(List<String> items) {
+    return [_allLabel, ...items.where((item) => item != _allLabel)];
+  }
+
+  void _resetFilters() {
+    setState(() {
+      _selectedField = '全部';
+      _selectedType = '全部';
+      _selectedStage = '全部';
+    });
+  }
+
   Future<void> _loadProjects() async {
+    if (!mounted) return;
     setState(() => _loading = true);
-    
+
+    final isProjectTab = _tabController.index == 0;
+    final field = _selectedField == _allLabel ? null : _selectedField;
+    final type = isProjectTab && _selectedType != _allLabel ? _selectedType : null;
+    final stage = isProjectTab && _selectedStage != _allLabel ? _selectedStage : null;
+    final category = isProjectTab ? 'project' : 'ability';
+
     try {
       final authService = Provider.of<AuthService>(context, listen: false);
+      
       final projects = await authService.apiService.getProjects(
-        field: _selectedField.isEmpty || _selectedField == '全部' ? null : _selectedField,
-        type: _selectedType.isEmpty || _selectedType == '全部' ? null : _selectedType,
-        stage: _selectedStage.isEmpty || _selectedStage == '全部' ? null : _selectedStage,
+        field: field,
+        type: type,
+        stage: stage,
+        category: category,
+        search: _searchQuery.isNotEmpty ? _searchQuery : null,
       );
+      
+      if (!mounted) return;
       setState(() => _projects = projects);
     } catch (e) {
       if (!mounted) return;
@@ -49,170 +102,241 @@ class _HomeScreenState extends State<HomeScreen> {
       if (authService.isAuthExpiredError(e)) {
         await authService.logout();
         if (!mounted) return;
-        _showError('登录已过期，请重新登录');
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('登录已过期，请重新登录'),
+            backgroundColor: AppTheme.error,
+          ),
+        );
         Navigator.of(context).popUntil((route) => route.isFirst);
         return;
       }
-      _showError(e.toString());
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('加载项目失败: ${e.toString()}'),
+          backgroundColor: AppTheme.error,
+          duration: const Duration(seconds: 3),
+        ),
+      );
     } finally {
-      if (mounted) setState(() => _loading = false);
+      if (mounted) {
+        setState(() => _loading = false);
+      }
     }
-  }
-
-  void _showError(String message) {
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(content: Text(message), backgroundColor: AppTheme.error),
-    );
-  }
-
-  void _showSuccess(String message) {
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(content: Text(message), backgroundColor: AppTheme.accent),
-    );
   }
 
   @override
   Widget build(BuildContext context) {
-    final authService = Provider.of<AuthService>(context);
-    
     return Scaffold(
-      appBar: AppBar(
-        title: Row(
-          children: [
-            const Icon(Icons.rocket_launch_rounded, size: 24, color: AppTheme.primary),
-            const SizedBox(width: 8),
-            const Text('Garith'),
-          ],
-        ),
-        actions: [
-          IconButton(
-            icon: const Icon(Icons.account_circle_outlined),
-            tooltip: '个人中心',
-            onPressed: () {
-              Navigator.push(
-                context,
-                MaterialPageRoute(builder: (context) => const ProfileScreen()),
-              );
-            },
-          ),
-          const SizedBox(width: 8),
-        ],
-      ),
-      body: Column(
-        children: [
-          // 筛选器
-          Container(
-            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-            decoration: const BoxDecoration(
-              color: AppTheme.surface,
-              border: Border(bottom: BorderSide(color: AppTheme.divider)),
-            ),
-            child: SingleChildScrollView(
-              scrollDirection: Axis.horizontal,
-              child: Row(
-                children: [
-                  _buildFilterGroup('领域', _fields, _selectedField, (val) {
-                    setState(() => _selectedField = val);
-                    _loadProjects();
-                  }),
-                  const SizedBox(width: 16),
-                  Container(width: 1, height: 24, color: AppTheme.divider),
-                  const SizedBox(width: 16),
-                  _buildFilterGroup('类型', _types, _selectedType, (val) {
-                    setState(() => _selectedType = val);
-                    _loadProjects();
-                  }),
-                  const SizedBox(width: 16),
-                  Container(width: 1, height: 24, color: AppTheme.divider),
-                  const SizedBox(width: 16),
-                  _buildFilterGroup('阶段', _stages, _selectedStage, (val) {
-                    setState(() => _selectedStage = val);
-                    _loadProjects();
-                  }),
+      backgroundColor: const Color(0xFFF7F8FA), // 更柔和的灰背景
+      body: NestedScrollView(
+        headerSliverBuilder: (context, innerBoxIsScrolled) {
+          return [
+            // 1. 顶部导航栏 (Logo + Tab)
+            SliverAppBar(
+              title: const Text(
+                '亿合 APP',
+                style: TextStyle(
+                  color: AppTheme.textPrimary,
+                  fontWeight: FontWeight.w400,
+                  fontSize: 20,
+                  letterSpacing: -0.5,
+                ),
+              ),
+              centerTitle: false,
+              backgroundColor: AppTheme.surface,
+              elevation: 0,
+              floating: true,
+              pinned: true,
+              bottom: TabBar(
+                controller: _tabController,
+                indicatorColor: AppTheme.primary,
+                indicatorWeight: 2,
+                dividerColor: Colors.transparent,
+                labelColor: AppTheme.textPrimary,
+                unselectedLabelColor: AppTheme.textSecondary,
+                labelStyle: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
+                tabs: const [
+                  Tab(text: '寻找伙伴'),
+                  Tab(text: '发现能力'),
                 ],
               ),
+              actions: [
+                IconButton(
+                  icon: const Icon(Icons.search, color: AppTheme.textPrimary),
+                  onPressed: () => _showSearchDialog(),
+                ),
+                IconButton(
+                  icon: const Icon(Icons.notifications_none, color: AppTheme.textPrimary),
+                  onPressed: () => _showNotifications(),
+                ),
+              ],
             ),
-          ),
-          
-          // 项目列表
-          Expanded(
-            child: _loading
-                ? const Center(child: CircularProgressIndicator())
-                : _projects.isEmpty
-                    ? _buildEmptyState()
-                    : RefreshIndicator(
-                        onRefresh: _loadProjects,
-                        child: ListView.separated(
-                          padding: const EdgeInsets.all(16),
-                          itemCount: _projects.length,
-                          separatorBuilder: (context, index) => const SizedBox(height: 12),
-                          itemBuilder: (context, index) {
-                            final project = _projects[index];
-                            return _buildProjectCard(project);
-                          },
+
+            // 2. 筛选栏 (吸顶效果)
+            SliverPersistentHeader(
+              pinned: true,
+              delegate: _SliverFilterDelegate(
+                child: Container(
+                  color: AppTheme.surface,
+                  height: 60,
+                  child: Row(
+                    children: [
+                      Expanded(
+                        child: SingleChildScrollView(
+                          scrollDirection: Axis.horizontal,
+                          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                          child: Row(
+                            children: [
+                              _buildFilterChip('领域', _selectedField, _withAll(AppConstants.projectFieldsFlat)),
+                              const SizedBox(width: 8),
+                              if (_tabController.index == 0) ...[
+                                _buildFilterChip('需求类型', _selectedType, _withAll(AppConstants.projectTypes)),
+                                const SizedBox(width: 8),
+                                _buildFilterChip('阶段', _selectedStage, _withAll(AppConstants.stages)),
+                              ],
+                            ],
+                          ),
                         ),
                       ),
-          ),
-        ],
-      ),
-      floatingActionButton: FloatingActionButton.extended(
-        onPressed: () => _showPublishOptions(context),
-        backgroundColor: AppTheme.primary,
-        foregroundColor: Colors.white,
-        icon: const Icon(Icons.add),
-        label: const Text('发布'),
+                    ],
+                  ),
+                ),
+              ),
+            ),
+          ];
+        },
+        // 3. 内容列表
+        body: _loading
+            ? const Center(
+                child: Column(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    CircularProgressIndicator(),
+                    SizedBox(height: 16),
+                    Text('加载中...', style: TextStyle(color: AppTheme.textSecondary)),
+                  ],
+                ),
+              )
+            : _projects.isEmpty
+                ? Center(
+                    child: Column(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        Icon(Icons.inbox_outlined, size: 64, color: AppTheme.textSecondary),
+                        const SizedBox(height: 16),
+                        const Text(
+                          '暂无项目',
+                          style: TextStyle(color: AppTheme.textSecondary, fontSize: 16),
+                        ),
+                        const SizedBox(height: 8),
+                        const Text(
+                          '试试调整筛选条件或发布新项目',
+                          style: TextStyle(color: AppTheme.textSecondary, fontSize: 14),
+                        ),
+                      ],
+                    ),
+                  )
+                : RefreshIndicator(
+                    onRefresh: _loadProjects,
+                    child: ListView.separated(
+                      padding: const EdgeInsets.all(16),
+                      itemCount: _projects.length,
+                      separatorBuilder: (c, i) => const SizedBox(height: 16),
+                      itemBuilder: (context, index) {
+                        return ProjectCard(project: _projects[index]);
+                      },
+                    ),
+                  ),
       ),
     );
   }
 
-  void _showPublishOptions(BuildContext context) {
+  // 现代化的筛选胶囊
+  Widget _buildFilterChip(String label, String value, List<String> options) {
+    bool isActive = value != _allLabel;
+    return GestureDetector(
+      onTap: () {
+        // 弹出底部选择框代替下拉菜单
+        _showSelectionSheet(label, options, (val) {
+          setState(() {
+            if (label == '领域') _selectedField = val;
+            else if (label == '需求类型') _selectedType = val;
+            else if (label == '阶段') _selectedStage = val;
+          });
+          _loadProjects();
+        });
+      },
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Text(
+            '$label：$value',
+            style: const TextStyle(
+              color: AppTheme.textSecondary,
+              fontWeight: FontWeight.normal,
+              fontSize: 13,
+            ),
+          ),
+          const SizedBox(width: 4),
+          const Icon(
+            Icons.keyboard_arrow_down_rounded,
+            size: 16,
+            color: AppTheme.textSecondary,
+          )
+        ],
+      ),
+    );
+  }
+
+  
+  void _showSelectionSheet(String title, List<String> items, Function(String) onSelected) {
     showModalBottomSheet(
       context: context,
+      isScrollControlled: true,
       shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(top: Radius.circular(16)),
+        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
       ),
       builder: (context) {
+        final maxHeight = MediaQuery.of(context).size.height * 0.8;
+        final availableHeight = maxHeight - 120; // 减去标题和padding
         return Container(
-          padding: const EdgeInsets.symmetric(vertical: 24, horizontal: 16),
+          constraints: BoxConstraints(
+            maxHeight: maxHeight,
+          ),
+          padding: const EdgeInsets.symmetric(vertical: 20),
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
-              const Text(
-                '请选择发布类型',
-                style: TextStyle(
-                  fontSize: 18,
-                  fontWeight: FontWeight.bold,
-                  color: AppTheme.textPrimary,
+              Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 20),
+                child: Text(
+                  title, 
+                  style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold)
                 ),
               ),
-              const SizedBox(height: 24),
-              Row(
-                mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-                children: [
-                  _buildPublishOption(
-                    context,
-                    icon: Icons.rocket_launch,
-                    label: '发布项目',
-                    description: '寻找伙伴、外包、合伙人',
-                    onTap: () {
-                      Navigator.pop(context);
-                      _navigateToCreateProject();
-                    },
-                  ),
-                  _buildPublishOption(
-                    context,
-                    icon: Icons.person_add,
-                    label: '发布能力',
-                    description: '展示技能、寻找机会',
-                    color: AppTheme.accent,
-                    onTap: () {
-                      Navigator.pop(context);
-                      _navigateToCreateProject(initialType: '能力');
-                    },
-                  ),
-                ],
-              ),
               const SizedBox(height: 16),
+              Flexible(
+                child: ConstrainedBox(
+                  constraints: BoxConstraints(
+                    maxHeight: availableHeight,
+                  ),
+                  child: ListView.builder(
+                    shrinkWrap: true,
+                    itemCount: items.length,
+                    itemBuilder: (context, index) {
+                      final item = items[index];
+                      return ListTile(
+                        title: Text(item, textAlign: TextAlign.center),
+                        onTap: () {
+                          onSelected(item);
+                          Navigator.pop(context);
+                        },
+                      );
+                    },
+                  ),
+                ),
+              ),
             ],
           ),
         );
@@ -220,255 +344,66 @@ class _HomeScreenState extends State<HomeScreen> {
     );
   }
 
-  Widget _buildPublishOption(
-    BuildContext context, {
-    required IconData icon,
-    required String label,
-    required String description,
-    required VoidCallback onTap,
-    Color color = AppTheme.primary,
-  }) {
-    return InkWell(
-      onTap: onTap,
-      borderRadius: BorderRadius.circular(12),
-      child: Container(
-        width: MediaQuery.of(context).size.width * 0.4,
-        padding: const EdgeInsets.all(16),
-        decoration: BoxDecoration(
-          color: AppTheme.surface,
-          borderRadius: BorderRadius.circular(12),
-          border: Border.all(color: AppTheme.divider),
-          boxShadow: [
-            BoxShadow(
-              color: Colors.black.withOpacity(0.05),
-              blurRadius: 8,
-              offset: const Offset(0, 2),
+  void _showSearchDialog() {
+    showDialog(
+      context: context,
+      builder: (context) {
+        String tempQuery = _searchQuery;
+        return AlertDialog(
+          title: const Text('搜索项目'),
+          content: TextField(
+            controller: TextEditingController(text: _searchQuery),
+            decoration: const InputDecoration(
+              hintText: '输入关键词搜索项目...',
+              border: OutlineInputBorder(),
+            ),
+            onChanged: (value) => tempQuery = value,
+            autofocus: true,
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(context),
+              child: const Text('取消'),
+            ),
+            ElevatedButton(
+              onPressed: () {
+                setState(() => _searchQuery = tempQuery);
+                Navigator.pop(context);
+                _loadProjects();
+              },
+              child: const Text('搜索'),
             ),
           ],
-        ),
-        child: Column(
-          children: [
-            Container(
-              padding: const EdgeInsets.all(12),
-              decoration: BoxDecoration(
-                color: color.withOpacity(0.1),
-                shape: BoxShape.circle,
-              ),
-              child: Icon(icon, size: 32, color: color),
-            ),
-            const SizedBox(height: 12),
-            Text(
-              label,
-              style: const TextStyle(
-                fontSize: 16,
-                fontWeight: FontWeight.bold,
-                color: AppTheme.textPrimary,
-              ),
-            ),
-            const SizedBox(height: 4),
-            Text(
-              description,
-              style: const TextStyle(
-                fontSize: 12,
-                color: AppTheme.textSecondary,
-              ),
-              textAlign: TextAlign.center,
-            ),
-          ],
-        ),
-      ),
+        );
+      },
     );
   }
 
-  void _navigateToCreateProject({String? initialType}) {
+  void _showNotifications() {
     Navigator.push(
       context,
-      MaterialPageRoute(
-        builder: (context) => CreateProjectScreen(initialType: initialType),
-      ),
-    ).then((result) {
-      if (result == true) _loadProjects();
-    });
-  }
-
-  Widget _buildEmptyState() {
-    return Center(
-      child: Column(
-        mainAxisAlignment: MainAxisAlignment.center,
-        children: [
-          Icon(Icons.inbox_outlined, size: 64, color: AppTheme.textSecondary.withValues(alpha: 0.3)),
-          const SizedBox(height: 16),
-          Text(
-            '暂无项目',
-            style: TextStyle(
-              color: AppTheme.textSecondary.withValues(alpha: 0.7),
-              fontSize: 16,
-              fontWeight: FontWeight.w500,
-            ),
-          ),
-          const SizedBox(height: 24),
-          OutlinedButton(
-            onPressed: _loadProjects,
-            child: const Text('刷新列表'),
-          ),
-        ],
-      ),
+      MaterialPageRoute(builder: (_) => const NotificationsScreen()),
     );
-  }
-
-  Widget _buildFilterGroup(String label, List<String> options, String selected, Function(String) onChanged) {
-    return Row(
-      children: [
-        Text(label, style: const TextStyle(fontSize: 12, color: AppTheme.textSecondary, fontWeight: FontWeight.w600)),
-        const SizedBox(width: 8),
-        DropdownButton<String>(
-          value: selected.isEmpty ? '全部' : selected,
-          underline: Container(),
-          style: const TextStyle(color: AppTheme.textPrimary, fontSize: 14, fontWeight: FontWeight.w500),
-          icon: const Icon(Icons.keyboard_arrow_down, size: 16, color: AppTheme.textSecondary),
-          onChanged: (String? newValue) {
-            if (newValue != null) onChanged(newValue);
-          },
-          items: options.map<DropdownMenuItem<String>>((String value) {
-            return DropdownMenuItem<String>(
-              value: value,
-              child: Text(value),
-            );
-          }).toList(),
-        ),
-      ],
-    );
-  }
-
-  Widget _buildProjectCard(Project project) {
-    return Card(
-      child: InkWell(
-        onTap: () {
-          Navigator.push(
-            context,
-            MaterialPageRoute(
-              builder: (context) => ProjectDetailScreen(projectId: project.id),
-            ),
-          ).then((_) => _loadProjects()); // Return from detail might have updates
-        },
-        borderRadius: BorderRadius.circular(12),
-        child: Padding(
-          padding: const EdgeInsets.all(16),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Row(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Expanded(
-                    child: Text(
-                      project.title,
-                      style: const TextStyle(
-                        fontSize: 18,
-                        fontWeight: FontWeight.bold,
-                        color: AppTheme.textPrimary,
-                      ),
-                      maxLines: 2,
-                      overflow: TextOverflow.ellipsis,
-                    ),
-                  ),
-                  const SizedBox(width: 8),
-                  _buildStatusBadge(project.status),
-                ],
-              ),
-              const SizedBox(height: 12),
-              Row(
-                children: [
-                  _buildTag(project.field, Colors.blue.shade50, Colors.blue.shade700),
-                  const SizedBox(width: 8),
-                  _buildTag(project.type, Colors.purple.shade50, Colors.purple.shade700),
-                  const SizedBox(width: 8),
-                  _buildTag(project.stage, Colors.orange.shade50, Colors.orange.shade800),
-                ],
-              ),
-              const SizedBox(height: 16),
-              const Divider(),
-              const SizedBox(height: 8),
-              Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                children: [
-                  Row(
-                    children: [
-                      const Icon(Icons.person_outline, size: 14, color: AppTheme.textSecondary),
-                      const SizedBox(width: 4),
-                      Text(
-                        project.ownerNickname,
-                        style: const TextStyle(fontSize: 12, color: AppTheme.textSecondary),
-                      ),
-                    ],
-                  ),
-                  Text(
-                    '更新于 ${_formatDate(project.updatedAt)}',
-                    style: const TextStyle(fontSize: 12, color: AppTheme.textSecondary),
-                  ),
-                ],
-              ),
-            ],
-          ),
-        ),
-      ),
-    );
-  }
-
-  Widget _buildStatusBadge(String status) {
-    Color color;
-    String text;
-    switch (status) {
-      case 'active':
-        color = AppTheme.accent;
-        text = '进行中';
-        break;
-      case 'paused':
-        color = Colors.amber;
-        text = '暂停';
-        break;
-      case 'closed':
-        color = AppTheme.textSecondary;
-        text = '已结束';
-        break;
-      default:
-        color = Colors.grey;
-        text = status;
-    }
-    
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-      decoration: BoxDecoration(
-        color: color.withValues(alpha: 0.1),
-        borderRadius: BorderRadius.circular(4),
-        border: Border.all(color: color.withValues(alpha: 0.2)),
-      ),
-      child: Text(
-        text,
-        style: TextStyle(
-          color: color,
-          fontSize: 12,
-          fontWeight: FontWeight.w600,
-        ),
-      ),
-    );
-  }
-
-  Widget _buildTag(String text, Color bg, Color fg) {
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
-      decoration: BoxDecoration(
-        color: bg,
-        borderRadius: BorderRadius.circular(4),
-      ),
-      child: Text(
-        text,
-        style: TextStyle(color: fg, fontSize: 12, fontWeight: FontWeight.w500),
-      ),
-    );
-  }
-
-  String _formatDate(DateTime date) {
-    return '${date.year}-${date.month.toString().padLeft(2, '0')}-${date.day.toString().padLeft(2, '0')}';
   }
 }
+
+// 辅助类：用于SliverPersistentHeader
+class _SliverFilterDelegate extends SliverPersistentHeaderDelegate {
+  final Widget child;
+  _SliverFilterDelegate({required this.child});
+
+  @override
+  double get minExtent => 60;
+  @override
+  double get maxExtent => 60;
+
+  @override
+  Widget build(BuildContext context, double shrinkOffset, bool overlapsContent) {
+    return child;
+  }
+
+  @override
+  bool shouldRebuild(_SliverFilterDelegate oldDelegate) => oldDelegate.child != child;
+}
+
+

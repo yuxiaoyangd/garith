@@ -1,8 +1,8 @@
 const { authenticateToken } = require('../middleware/auth');
 
-// 获取项目列表
+// ????????????
 async function getProjects(request, reply) {
-    const { field, type, stage, status = 'active', page = 1, limit = 20 } = request.query;
+    const { field, type, stage, status = 'active', category, page = 1, limit = 20, search } = request.query;
     
     let query = `
         SELECT p.*, u.nickname as owner_nickname, u.email as owner_email
@@ -11,6 +11,19 @@ async function getProjects(request, reply) {
         WHERE p.status = ?
     `;
     const params = [status];
+
+    // 搜索功能
+    if (search) {
+        query += ' AND (p.title LIKE ? OR p.blocker LIKE ? OR u.nickname LIKE ?)';
+        const searchParam = `%${search}%`;
+        params.push(searchParam, searchParam, searchParam);
+    }
+
+    if (category === 'ability') {
+        query += " AND p.type = '能力'";
+    } else if (category === 'project') {
+        query += " AND p.type != '能力'";
+    }
 
     if (field) {
         query += ' AND p.field = ?';
@@ -37,11 +50,12 @@ async function getProjects(request, reply) {
     
     return reply.send(projects.map(project => ({
         ...project,
-        skills: project.skills ? JSON.parse(project.skills) : []
+        skills: project.skills ? JSON.parse(project.skills) : [],
+        images: project.images ? JSON.parse(project.images) : []
     })));
 }
 
-// 获取项目详情
+// ????????????
 async function getProjectById(request, reply) {
     const { id } = request.params;
     
@@ -66,6 +80,7 @@ async function getProjectById(request, reply) {
     return reply.send({
         ...project,
         skills: project.skills ? JSON.parse(project.skills) : [],
+        images: project.images ? JSON.parse(project.images) : [],
         progress
     });
 }
@@ -73,12 +88,23 @@ async function getProjectById(request, reply) {
 // 创建项目
 async function createProject(request, reply) {
     const user = request.user;
-    const { title, type, field, stage, blocker, help_type, is_public_progress } = request.body;
+    const { title, type, field, stage, blocker, help_type, is_public_progress, images } = request.body;
+    const imagesJson = Array.isArray(images) && images.length > 0 ? JSON.stringify(images) : null;
     
     const result = request.server.db.prepare(`
-        INSERT INTO projects (title, type, field, stage, blocker, help_type, is_public_progress, owner_id)
-        VALUES (?, ?, ?, ?, ?, ?, ?, ?)
-    `).run(title, type, field, stage, blocker || null, help_type || null, (is_public_progress ? 1 : 0), user.id);
+        INSERT INTO projects (title, type, field, stage, blocker, help_type, is_public_progress, images, owner_id)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+    `).run(
+        title,
+        type,
+        field,
+        stage,
+        blocker || null,
+        help_type || null,
+        (is_public_progress ? 1 : 0),
+        imagesJson,
+        user.id
+    );
     
     return reply.send({ 
         id: result.lastInsertRowid,
@@ -86,7 +112,83 @@ async function createProject(request, reply) {
     });
 }
 
-// 更新项目状态
+// ??????
+// Update project details
+async function updateProject(request, reply) {
+    const user = request.user;
+    const { id } = request.params;
+    const {
+        title,
+        type,
+        field,
+        stage,
+        blocker,
+        help_type,
+        helpType,
+        is_public_progress,
+        isPublicProgress,
+        images
+    } = request.body;
+
+    const project = request.server.db.prepare('SELECT * FROM projects WHERE id = ? AND owner_id = ?')
+        .get(id, user.id);
+
+    if (!project) {
+        return reply.code(404).send({ error: 'Project not found' });
+    }
+
+    const updates = [];
+    const params = [];
+
+    if (title !== undefined) {
+        updates.push('title = ?');
+        params.push(title);
+    }
+    if (type !== undefined) {
+        updates.push('type = ?');
+        params.push(type);
+    }
+    if (field !== undefined) {
+        updates.push('field = ?');
+        params.push(field);
+    }
+    if (stage !== undefined) {
+        updates.push('stage = ?');
+        params.push(stage);
+    }
+    if (blocker !== undefined) {
+        updates.push('blocker = ?');
+        params.push(blocker || null);
+    }
+
+    const normalizedHelpType = help_type !== undefined ? help_type : helpType;
+    if (normalizedHelpType !== undefined) {
+        updates.push('help_type = ?');
+        params.push(normalizedHelpType || null);
+    }
+
+    const normalizedPublicProgress = is_public_progress !== undefined ? is_public_progress : isPublicProgress;
+    if (normalizedPublicProgress !== undefined) {
+        updates.push('is_public_progress = ?');
+        params.push(normalizedPublicProgress ? 1 : 0);
+    }
+
+    if (images !== undefined) {
+        const imagesJson = Array.isArray(images) && images.length > 0 ? JSON.stringify(images) : null;
+        updates.push('images = ?');
+        params.push(imagesJson);
+    }
+
+    if (updates.length === 0) {
+        return reply.code(400).send({ error: 'No fields to update' });
+    }
+
+    const updateQuery = `UPDATE projects SET ${updates.join(', ')}, updated_at = CURRENT_TIMESTAMP WHERE id = ?`;
+    params.push(id);
+    request.server.db.prepare(updateQuery).run(...params);
+
+    return reply.send({ message: 'Project updated successfully' });
+}
 async function updateProjectStatus(request, reply) {
     const user = request.user;
     const { id } = request.params;
@@ -122,14 +224,14 @@ async function deleteProject(request, reply) {
 }
 
 async function projectRoutes(fastify, options) {
-    // 获取项目列表（无需登录）
+    // ????????????
     fastify.get('/', {
         schema: {
             querystring: {
                 type: 'object',
                 properties: {
                     field: { type: 'string' },
-                    type: { type: 'string', enum: ['需求', '合伙', '外包', '能力'] },
+                    type: { type: 'string', enum: ['求资', '合伙', '外包', '能力'] },
                     stage: { type: 'string', enum: ['想法', '原型', '开发中', '已上线'] },
                     status: { type: 'string', enum: ['active', 'paused', 'closed'] },
                     page: { type: 'integer', minimum: 1 },
@@ -139,7 +241,7 @@ async function projectRoutes(fastify, options) {
         }
     }, getProjects);
 
-    // 获取项目详情（无需登录）
+    // ????????????
     fastify.get('/:id', {
         schema: {
             params: {
@@ -161,18 +263,47 @@ async function projectRoutes(fastify, options) {
                 required: ['title', 'type', 'field', 'stage'],
                 properties: {
                     title: { type: 'string', minLength: 1, maxLength: 200 },
-                    type: { type: 'string', enum: ['需求', '合伙', '外包', '能力'] },
+                    type: { type: 'string', enum: ['求资', '合伙', '外包', '能力'] },
                     field: { type: 'string', minLength: 1 },
                     stage: { type: 'string', enum: ['想法', '原型', '开发中', '已上线'] },
                     blocker: { type: 'string' },
                     help_type: { type: 'string' },
-                    is_public_progress: { type: 'boolean' }
+                    is_public_progress: { type: 'boolean' },
+                    images: { type: 'array', items: { type: 'string' } }
                 }
             }
         }
     }, createProject);
 
-    // 更新项目状态（需要登录）
+    // ??????
+    // Update project details (requires login)
+    fastify.patch('/:id', {
+        preHandler: authenticateToken,
+        schema: {
+            params: {
+                type: 'object',
+                required: ['id'],
+                properties: {
+                    id: { type: 'integer' }
+                }
+            },
+            body: {
+                type: 'object',
+                properties: {
+                    title: { type: 'string', minLength: 1, maxLength: 200 },
+                    type: { type: 'string', enum: ['求资', '合伙', '外包', '能力'] },
+                    field: { type: 'string', minLength: 1 },
+                    stage: { type: 'string', enum: ['想法', '原型', '开发中', '已上线'] },
+                    blocker: { type: 'string' },
+                    help_type: { type: 'string' },
+                    helpType: { type: 'string' },
+                    is_public_progress: { type: 'boolean' },
+                    isPublicProgress: { type: 'boolean' },
+                    images: { type: 'array', items: { type: 'string' } }
+                }
+            }
+        }
+    }, updateProject);
     fastify.patch('/:id/status', {
         preHandler: authenticateToken,
         schema: {

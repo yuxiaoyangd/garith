@@ -80,7 +80,9 @@ class _SubmitIntentScreenState extends State<SubmitIntentScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
+      backgroundColor: AppTheme.background,
       appBar: AppBar(
+        backgroundColor: AppTheme.surface,
         title: const Text('提交合作意向'),
       ),
       body: Column(
@@ -101,7 +103,11 @@ class _SubmitIntentScreenState extends State<SubmitIntentScreen> {
                     style: Theme.of(context).textTheme.bodyMedium,
                   ),
                   const SizedBox(height: 32),
-                  
+                  Card(
+                    child: Padding(
+                      padding: const EdgeInsets.all(16),
+                      child: Column(
+                        children: [
                   TextField(
                     controller: _offerController,
                     maxLines: 4,
@@ -160,6 +166,10 @@ class _SubmitIntentScreenState extends State<SubmitIntentScreen> {
                           ),
                         ),
                       ],
+                    ),
+                  ),
+                        ],
+                      ),
                     ),
                   ),
                 ],

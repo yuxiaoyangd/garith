@@ -1,7 +1,12 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/foundation.dart';
 import 'package:provider/provider.dart';
+import 'dart:io';
+import 'package:image_picker/image_picker.dart';
 import '../services/auth_service.dart';
 import '../theme.dart';
+import '../widgets/searchable_dropdown.dart';
+import '../constants.dart';
 
 class CreateProjectScreen extends StatefulWidget {
   final String? initialType;
@@ -15,31 +20,37 @@ class _CreateProjectScreenState extends State<CreateProjectScreen> {
   final _titleController = TextEditingController();
   final _blockerController = TextEditingController();
   final _helpTypeController = TextEditingController();
-  
-  String _selectedType = '需求';
-  String _selectedField = 'Web';
+
+  String _selectedType = '求资';
+  String _selectedField = 'Web应用';
   String _selectedStage = '想法';
   bool _isPublicProgress = true;
   bool _loading = false;
   int _currentStep = 0;
+  List<XFile> _selectedImages = [];
 
-  final List<String> _projectTypes = ['需求', '合伙', '外包'];
-  final List<String> _projectFields = ['Web', 'IoT', 'AI', '移动开发', '其他'];
-  final List<String> _abilityFields = ['开发', '推广', '其它'];
-  final List<String> _stages = ['想法', '原型', '开发中', '已上线'];
+  bool get _isAbility => widget.initialType == '能力';
 
-  List<String> get _currentTypes => widget.initialType == '能力' ? ['能力'] : _projectTypes;
-  List<String> get _currentFields => _selectedType == '能力' ? _abilityFields : _projectFields;
+  Map<String, List<String>> get _currentFieldsGrouped =>
+      _isAbility ? AppConstants.abilityFieldsGrouped : AppConstants.projectFieldsGrouped;
+
+  List<String> get _currentFieldsFlat =>
+      _isAbility ? AppConstants.abilityFieldsFlat : AppConstants.projectFieldsFlat;
 
   @override
   void initState() {
     super.initState();
-    if (widget.initialType != null) {
-      _selectedType = widget.initialType!;
-      if (_selectedType == '能力') {
-        _selectedField = _abilityFields[0];
-        _selectedStage = '已上线'; // Default stage for ability
-      }
+    if (_isAbility) {
+      _selectedType = '能力';
+      _selectedStage = AppConstants.stages.last;
+      _selectedField = AppConstants.abilityFieldsGrouped.values.first.first;
+      return;
+    }
+
+    // 项目默认值
+    _selectedType = AppConstants.projectTypes.first;
+    if (!_currentFieldsFlat.contains(_selectedField)) {
+      _selectedField = AppConstants.projectFieldsGrouped.values.first.first;
     }
   }
 
@@ -51,6 +62,27 @@ class _CreateProjectScreenState extends State<CreateProjectScreen> {
     super.dispose();
   }
 
+  Future<void> _pickImages() async {
+    final ImagePicker picker = ImagePicker();
+    final List<XFile>? images = await picker.pickMultiImage(
+      maxWidth: 1024,
+      maxHeight: 1024,
+      imageQuality: 80,
+    );
+
+    if (images != null && images.isNotEmpty) {
+      setState(() {
+        _selectedImages = images.take(5).toList(); // 最多5张图片
+      });
+    }
+  }
+
+  void _removeImage(int index) {
+    setState(() {
+      _selectedImages.removeAt(index);
+    });
+  }
+
   Future<void> _createProject() async {
     if (_loading) return;
     if (_titleController.text.isEmpty) {
@@ -59,19 +91,40 @@ class _CreateProjectScreenState extends State<CreateProjectScreen> {
     }
 
     setState(() => _loading = true);
-    
+
     try {
       final authService = Provider.of<AuthService>(context, listen: false);
+
+      List<String> uploadedImages = [];
+
+      // 先上传图片（如果有的话）
+      if (_selectedImages.isNotEmpty) {
+        try {
+          uploadedImages = await authService.apiService.uploadProjectImages(
+            _selectedImages.map((xfile) => xfile.path).toList(),
+          );
+        } catch (uploadError) {
+          debugPrint('Image upload failed: $uploadError');
+          // 图片上传失败不阻止项目创建，继续创建项目
+        }
+      }
+
+      // 创建项目
       await authService.apiService.createProject(
         title: _titleController.text,
         type: _selectedType,
         field: _selectedField,
         stage: _selectedStage,
-        blocker: _blockerController.text.isEmpty ? null : _blockerController.text,
-        helpType: _helpTypeController.text.isEmpty ? null : _helpTypeController.text,
+        blocker: _blockerController.text.isEmpty
+            ? null
+            : _blockerController.text,
+        helpType: _helpTypeController.text.isEmpty
+            ? null
+            : _helpTypeController.text,
+        images: uploadedImages.isNotEmpty ? uploadedImages : null,
         isPublicProgress: _isPublicProgress,
       );
-      
+
       if (!mounted) return;
       _showSuccess('项目创建成功');
       Navigator.pop(context, true);
@@ -117,38 +170,90 @@ class _CreateProjectScreenState extends State<CreateProjectScreen> {
     }
   }
 
-  @override
-  Widget build(BuildContext context) {
-    return Scaffold(
-      appBar: AppBar(
-        title: const Text('发布新项目'),
-        centerTitle: true,
-      ),
-      body: Column(
-        children: [
-          _buildStepIndicator(),
-          const Divider(height: 1),
-          Expanded(
-            child: SingleChildScrollView(
-              padding: const EdgeInsets.all(24),
-              child: _buildStepContent(),
-            ),
+  Future<bool> _showExitConfirmDialog() async {
+    final result = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('确认退出'),
+        content: const Text('退出后已填写的内容将被清空，确定要退出吗？'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context, false),
+            child: const Text('取消'),
           ),
-          _buildBottomBar(),
+          TextButton(
+            onPressed: () => Navigator.pop(context, true),
+            child: const Text('确定'),
+          ),
         ],
+      ),
+    );
+    return result ?? false;
+  }
+
+@override
+  Widget build(BuildContext context) {
+    return PopScope(
+      canPop: false,
+      onPopInvoked: (didPop) async {
+        if (didPop) return;
+        
+        final hasContent = _titleController.text.isNotEmpty ||
+            _blockerController.text.isNotEmpty ||
+            _helpTypeController.text.isNotEmpty;
+        
+        if (hasContent) {
+          final shouldPop = await _showExitConfirmDialog();
+          if (shouldPop && mounted) {
+            Navigator.pop(context);
+          }
+        } else {
+          if (mounted) Navigator.pop(context);
+        }
+      },
+      child: Scaffold(
+        backgroundColor: AppTheme.background,
+        appBar: AppBar(
+          title: Text(_isAbility ? '展示能力' : '发布项目'),
+          backgroundColor: AppTheme.surface,
+          elevation: 0,
+        ),
+        body: Column(
+          children: [
+            _buildStepIndicator(),
+            const Divider(height: 1),
+            Expanded(
+              child: SingleChildScrollView(
+                padding: const EdgeInsets.all(24),
+                child: Card(
+                  child: Padding(
+                    padding: const EdgeInsets.all(16),
+                    child: _buildStepContent(),
+                  ),
+                ),
+              ),
+            ),
+            _buildBottomBar(),
+          ],
+        ),
       ),
     );
   }
 
   Widget _buildStepIndicator() {
     return Container(
+      margin: const EdgeInsets.fromLTRB(16, 16, 16, 8),
       padding: const EdgeInsets.symmetric(vertical: 16, horizontal: 24),
-      color: AppTheme.surface,
+      decoration: BoxDecoration(
+        color: AppTheme.surface,
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: AppTheme.divider),
+      ),
       child: Row(
         children: [
-          _buildStepDot(0, '基本信息'),
+          _buildStepDot(0, _isAbility ? '基本信息' : '项目信息'),
           _buildStepConnector(0),
-          _buildStepDot(1, '项目详情'),
+          _buildStepDot(1, _isAbility ? '能力详情' : '项目详情'),
           _buildStepConnector(1),
           _buildStepDot(2, '发布设置'),
         ],
@@ -170,7 +275,7 @@ class _CreateProjectScreenState extends State<CreateProjectScreen> {
   Widget _buildStepDot(int step, String label) {
     final isActive = step == _currentStep;
     final isCompleted = step < _currentStep;
-    
+
     return Column(
       mainAxisSize: MainAxisSize.min,
       children: [
@@ -178,10 +283,14 @@ class _CreateProjectScreenState extends State<CreateProjectScreen> {
           width: 28,
           height: 28,
           decoration: BoxDecoration(
-            color: isActive ? AppTheme.primary : (isCompleted ? AppTheme.accent : AppTheme.background),
+            color: isActive
+                ? AppTheme.primary
+                : (isCompleted ? AppTheme.accent : AppTheme.background),
             shape: BoxShape.circle,
             border: Border.all(
-              color: isActive || isCompleted ? Colors.transparent : AppTheme.divider,
+              color: isActive || isCompleted
+                  ? Colors.transparent
+                  : AppTheme.divider,
               width: 2,
             ),
           ),
@@ -225,54 +334,77 @@ class _CreateProjectScreenState extends State<CreateProjectScreen> {
   }
 
   Widget _buildBasicInfoStep() {
+    final isAbility = _isAbility;
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        _buildSectionHeader('项目基本信息', '请填写项目的核心信息，让大家快速了解你在做什么。'),
+        _buildSectionHeader(
+          isAbility ? '能力基本信息' : '项目基本信息',
+          isAbility ? '请填写你的核心能力，让大家快速了解你的技能优势。' : '请填写项目的核心信息，让大家快速了解你在做什么。',
+        ),
         const SizedBox(height: 24),
         TextField(
           controller: _titleController,
-          decoration: const InputDecoration(
-            labelText: '项目标题 *',
-            hintText: '一句话描述你的项目，例如：基于 Flutter 的协作平台',
+          decoration: InputDecoration(
+            labelText: isAbility ? '能力名称 *' : '项目标题 *',
+            hintText: isAbility
+                ? '一句话描述你的能力，例如：全栈开发工程师'
+                : '一句话描述你的项目，例如：基于 Flutter 的协作平台',
           ),
         ),
         const SizedBox(height: 24),
-        _buildDropdown('所属领域', _currentFields, _selectedField, (val) => setState(() => _selectedField = val!)),
-        const SizedBox(height: 24),
-        // 如果是能力发布，锁定类型
-        IgnorePointer(
-          ignoring: widget.initialType == '能力',
-          child: _buildDropdown('项目类型', _currentTypes, _selectedType, (val) {
-            setState(() {
-              _selectedType = val!;
-              // Reset field if switching types might cause mismatch (though here we only switch between project types)
-              if (!_currentFields.contains(_selectedField)) {
-                _selectedField = _currentFields[0];
-              }
-            });
-          }),
+        SearchableDropdown(
+          label: '所属领域',
+          value: _selectedField,
+          groupedItems: _currentFieldsGrouped,
+          onChanged: (val) {
+            if (val != null) setState(() => _selectedField = val);
+          },
         ),
-        if (_selectedType != '能力') ...[
+
+        if (!isAbility) ...[
           const SizedBox(height: 24),
-          _buildDropdown('当前阶段', _stages, _selectedStage, (val) => setState(() => _selectedStage = val!)),
+          SearchableDropdown(
+            label: '需求类型',
+            value: _selectedType,
+            items: AppConstants.projectTypes,
+            onChanged: (val) {
+              if (val != null) {
+                setState(() => _selectedType = val);
+              }
+            },
+          ),
         ],
+
+        const SizedBox(height: 24),
+        if (!isAbility)
+          SearchableDropdown(
+            label: '当前阶段',
+            value: _selectedStage,
+            items: AppConstants.stages,
+            onChanged: (val) {
+              if (val != null) setState(() => _selectedStage = val);
+            },
+          ),
       ],
     );
   }
 
   Widget _buildDetailsStep() {
-    final isAbility = _selectedType == '能力';
+    final isAbility = _isAbility;
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        _buildSectionHeader('详细情况', isAbility ? '描述你的能力优势，让项目方找到你。' : '描述当前的困境和需求，吸引合适的合作伙伴。'),
+        _buildSectionHeader(
+          '详细情况',
+          isAbility ? '描述你的能力优势，让项目方找到你。' : '描述当前的困境和需求，吸引合适的合作伙伴。',
+        ),
         const SizedBox(height: 24),
         TextField(
           controller: _blockerController,
           maxLines: 4,
           decoration: InputDecoration(
-            labelText: isAbility ? '能力描述' : '当前卡点（可选）',
+            labelText: isAbility ? '能力描述' : '项目描述（可选）',
             hintText: isAbility ? '详细描述你的技能、经验和过往案例...' : '目前遇到了什么困难？技术瓶颈、缺人、缺设计？',
             alignLabelWithHint: true,
           ),
@@ -287,19 +419,147 @@ class _CreateProjectScreenState extends State<CreateProjectScreen> {
             alignLabelWithHint: true,
           ),
         ),
+        const SizedBox(height: 24),
+        // 图片上传区域
+        Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            const Text(
+              '项目图片（可选）',
+              style: TextStyle(
+                fontSize: 16,
+                fontWeight: FontWeight.w600,
+                color: AppTheme.textPrimary,
+              ),
+            ),
+            const SizedBox(height: 8),
+            const Text(
+              '最多上传5张图片，展示你的项目或能力',
+              style: TextStyle(
+                fontSize: 14,
+                color: AppTheme.textSecondary,
+              ),
+            ),
+            const SizedBox(height: 12),
+            if (_selectedImages.isEmpty)
+              GestureDetector(
+                onTap: _pickImages,
+                child: Container(
+                  width: double.infinity,
+                  height: 120,
+                  decoration: BoxDecoration(
+                    color: AppTheme.background,
+                    borderRadius: BorderRadius.circular(8),
+                    border: Border.all(color: AppTheme.divider, style: BorderStyle.solid),
+                  ),
+                  child: const Column(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      Icon(Icons.add_photo_alternate, size: 48, color: AppTheme.textSecondary),
+                      SizedBox(height: 8),
+                      Text(
+                        '点击选择图片',
+                        style: TextStyle(color: AppTheme.textSecondary),
+                      ),
+                    ],
+                  ),
+                ),
+              )
+            else
+              Column(
+                children: [
+                  Container(
+                    height: 100,
+                    child: ListView.separated(
+                      scrollDirection: Axis.horizontal,
+                      itemCount: _selectedImages.length + 1,
+                      separatorBuilder: (context, index) => const SizedBox(width: 8),
+                      itemBuilder: (context, index) {
+                        if (index == _selectedImages.length) {
+                          // 添加更多图片按钮
+                          return GestureDetector(
+                            onTap: _selectedImages.length < 5 ? _pickImages : null,
+                            child: Container(
+                              width: 100,
+                              height: 100,
+                              decoration: BoxDecoration(
+                                color: AppTheme.background,
+                                borderRadius: BorderRadius.circular(8),
+                                border: Border.all(color: AppTheme.divider),
+                              ),
+                              child: const Icon(Icons.add, color: AppTheme.textSecondary),
+                            ),
+                          );
+                        }
+                        
+                        // 显示选中的图片
+                        return Stack(
+                          children: [
+                            Container(
+                              width: 100,
+                              height: 100,
+                              decoration: BoxDecoration(
+                                borderRadius: BorderRadius.circular(8),
+                                image: DecorationImage(
+                                  image: FileImage(File(_selectedImages[index].path)),
+                                  fit: BoxFit.cover,
+                                ),
+                              ),
+                            ),
+                            Positioned(
+                              top: 4,
+                              right: 4,
+                              child: GestureDetector(
+                                onTap: () => _removeImage(index),
+                                child: Container(
+                                  padding: const EdgeInsets.all(4),
+                                  decoration: const BoxDecoration(
+                                    color: Colors.red,
+                                    shape: BoxShape.circle,
+                                  ),
+                                  child: const Icon(
+                                    Icons.close,
+                                    color: Colors.white,
+                                    size: 16,
+                                  ),
+                                ),
+                              ),
+                            ),
+                          ],
+                        );
+                      },
+                    ),
+                  ),
+                  const SizedBox(height: 8),
+                  Text(
+                    '${_selectedImages.length}/5',
+                    style: const TextStyle(
+                      fontSize: 12,
+                      color: AppTheme.textSecondary,
+                    ),
+                  ),
+                ],
+              ),
+          ],
+        ),
       ],
     );
   }
 
   Widget _buildSettingsStep() {
+    final isAbility = _isAbility;
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         _buildSectionHeader('发布设置', '确认最后的发布选项。'),
         const SizedBox(height: 24),
         SwitchListTile(
-          title: const Text('公开项目进度'),
-          subtitle: const Text('开启后，所有人都可以看到你的项目更新记录，建议开启以增加透明度。'),
+          title: Text(isAbility ? '公开能力信息' : '公开项目进度'),
+          subtitle: Text(
+            isAbility
+                ? '开启后，所有人都可以看到你的能力详情，建议开启以增加曝光。'
+                : '开启后，所有人都可以看到你的项目更新记录，建议开启以增加透明度。',
+          ),
           value: _isPublicProgress,
           activeTrackColor: AppTheme.primary,
           contentPadding: EdgeInsets.zero,
@@ -322,10 +582,15 @@ class _CreateProjectScreenState extends State<CreateProjectScreen> {
             children: [
               const Text(
                 '预览',
-                style: TextStyle(fontWeight: FontWeight.bold, color: AppTheme.textPrimary),
+                style: TextStyle(
+                  fontWeight: FontWeight.bold,
+                  color: AppTheme.textPrimary,
+                ),
               ),
               const SizedBox(height: 12),
-              Text('标题: ${_titleController.text.isEmpty ? "(未填写)" : _titleController.text}'),
+              Text(
+                '标题: ${_titleController.text.isEmpty ? "(未填写)" : _titleController.text}',
+              ),
               const SizedBox(height: 4),
               Text('类型: $_selectedType | $_selectedField | $_selectedStage'),
             ],
@@ -339,33 +604,9 @@ class _CreateProjectScreenState extends State<CreateProjectScreen> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Text(
-          title,
-          style: Theme.of(context).textTheme.titleLarge,
-        ),
+        Text(title, style: Theme.of(context).textTheme.titleLarge),
         const SizedBox(height: 8),
-        Text(
-          subtitle,
-          style: Theme.of(context).textTheme.bodyMedium,
-        ),
-      ],
-    );
-  }
-
-  Widget _buildDropdown(String label, List<String> items, String value, ValueChanged<String?> onChanged) {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Text(label, style: const TextStyle(color: AppTheme.textSecondary, fontSize: 14)),
-        const SizedBox(height: 8),
-        DropdownButtonFormField<String>(
-          initialValue: value,
-          decoration: const InputDecoration(),
-          items: items.map((String item) {
-            return DropdownMenuItem(value: item, child: Text(item));
-          }).toList(),
-          onChanged: onChanged,
-        ),
+        Text(subtitle, style: Theme.of(context).textTheme.bodyMedium),
       ],
     );
   }
@@ -381,18 +622,22 @@ class _CreateProjectScreenState extends State<CreateProjectScreen> {
         mainAxisAlignment: MainAxisAlignment.spaceBetween,
         children: [
           if (_currentStep > 0)
-            OutlinedButton(
-              onPressed: _previousStep,
-              child: const Text('上一步'),
-            )
+            OutlinedButton(onPressed: _previousStep, child: const Text('上一步'))
           else
             const SizedBox.shrink(),
-            
+
           ElevatedButton(
             onPressed: _loading ? null : _nextStep,
-            child: _loading 
-              ? const SizedBox(width: 20, height: 20, child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2))
-              : Text(_currentStep == 2 ? '确认发布' : '下一步'),
+            child: _loading
+                ? const SizedBox(
+                    width: 20,
+                    height: 20,
+                    child: CircularProgressIndicator(
+                      color: Colors.white,
+                      strokeWidth: 2,
+                    ),
+                  )
+                : Text(_currentStep == 2 ? '确认发布' : '下一步'),
           ),
         ],
       ),

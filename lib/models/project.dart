@@ -1,3 +1,5 @@
+import 'dart:convert';
+
 class Project {
   final int id;
   final String title;
@@ -6,6 +8,7 @@ class Project {
   final String stage;
   final String? blocker;
   final String? helpType;
+  final List<String> images;
   final bool isPublicProgress;
   final String status;
   final int ownerId;
@@ -25,6 +28,7 @@ class Project {
     required this.stage,
     this.blocker,
     this.helpType,
+    this.images = const [],
     required this.isPublicProgress,
     required this.status,
     required this.ownerId,
@@ -46,6 +50,7 @@ class Project {
       stage: json['stage'],
       blocker: json['blocker'],
       helpType: json['help_type'],
+      images: _parseImages(json['images']),
       isPublicProgress: json['is_public_progress'] == 1,
       status: json['status'],
       ownerId: json['owner_id'],
@@ -59,6 +64,22 @@ class Project {
       progressCount: json['progress_count'],
       intentsCount: json['intents_count'],
     );
+  }
+
+  static List<String> _parseImages(dynamic value) {
+    if (value == null) return [];
+    if (value is List) {
+      return value.map((item) => item.toString()).toList();
+    }
+    if (value is String && value.isNotEmpty) {
+      try {
+        final decoded = jsonDecode(value);
+        if (decoded is List) {
+          return decoded.map((item) => item.toString()).toList();
+        }
+      } catch (_) {}
+    }
+    return [];
   }
 }
 

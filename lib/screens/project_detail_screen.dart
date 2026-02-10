@@ -1,9 +1,11 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../services/auth_service.dart';
+import '../services/api_service.dart';
 import '../models/project.dart';
 import '../screens/submit_intent_screen.dart';
-import '../screens/add_progress_screen.dart';
+import '../screens/add_progress_simple_screen.dart';
+import '../screens/edit_project_screen.dart';
 import '../theme.dart';
 
 class ProjectDetailScreen extends StatefulWidget {
@@ -18,6 +20,7 @@ class ProjectDetailScreen extends StatefulWidget {
 class _ProjectDetailScreenState extends State<ProjectDetailScreen> {
   Project? _project;
   bool _loading = true;
+  bool _hasSubmittedIntent = false;
 
   @override
   void initState() {
@@ -27,12 +30,19 @@ class _ProjectDetailScreenState extends State<ProjectDetailScreen> {
 
   Future<void> _loadProject() async {
     setState(() => _loading = true);
-    
+
     try {
       final authService = Provider.of<AuthService>(context, listen: false);
       final project = await authService.apiService.getProjectById(widget.projectId);
       if (!mounted) return;
       setState(() => _project = project);
+
+      // 检查用户是否已提交意向
+      if (authService.isLoggedIn && project.ownerId != authService.currentUser!.id) {
+        final hasIntent = await authService.apiService.checkUserIntent(widget.projectId);
+        if (!mounted) return;
+        setState(() => _hasSubmittedIntent = hasIntent);
+      }
     } catch (e) {
       if (!mounted) return;
       final authService = Provider.of<AuthService>(context, listen: false);
@@ -60,24 +70,26 @@ class _ProjectDetailScreenState extends State<ProjectDetailScreen> {
     final authService = Provider.of<AuthService>(context);
     
     return Scaffold(
+      backgroundColor: AppTheme.background,
       appBar: AppBar(
+        backgroundColor: AppTheme.surface,
         title: const Text('项目详情'),
         actions: [
-           if (_project != null && 
-               authService.isLoggedIn && 
+           if (_project != null &&
+               authService.isLoggedIn &&
                _project!.ownerId == authService.currentUser!.id)
              IconButton(
-               icon: const Icon(Icons.edit_note),
-               tooltip: '更新进度',
+               icon: Icon(Icons.edit, size: 20, color: AppTheme.textSecondary.withValues(alpha: 0.8)),
+               tooltip: '编辑项目',
                onPressed: () {
-                 Navigator.push(
-                    context,
-                    MaterialPageRoute(
-                      builder: (context) => AddProgressScreen(projectId: _project!.id),
-                    ),
-                  ).then((result) {
-                    if (result == true) _loadProject();
-                  });
+                  Navigator.push(
+                     context,
+                     MaterialPageRoute(
+                       builder: (context) => EditProjectScreen(project: _project!),
+                     ),
+                   ).then((result) {
+                     if (result == true) _loadProject();
+                   });
                },
              ),
         ],
@@ -95,11 +107,15 @@ class _ProjectDetailScreenState extends State<ProjectDetailScreen> {
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         _buildHeader(),
+                        if (_project!.images.isNotEmpty) ...[
+                          const SizedBox(height: 16),
+                          _buildImageGallery(),
+                        ],
                         const SizedBox(height: 24),
                         _buildInfoGrid(),
                         const SizedBox(height: 24),
                         if (_project!.blocker != null) ...[
-                          _buildSectionTitle('当前卡点', Icons.warning_amber_rounded, Colors.orange),
+                          _buildSectionTitle('项目描述', Icons.warning_amber_rounded, Colors.orange),
                           const SizedBox(height: 12),
                           _buildContentCard(_project!.blocker!),
                           const SizedBox(height: 24),
@@ -113,9 +129,63 @@ class _ProjectDetailScreenState extends State<ProjectDetailScreen> {
                         _buildSectionTitle('项目进度', Icons.history, AppTheme.secondary),
                         const SizedBox(height: 12),
                         if (_project!.progress.isEmpty)
-                          const Text('暂无进度更新', style: TextStyle(color: AppTheme.textSecondary))
-                        else
+                          Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Row(
+                                children: [
+                                  const Text('暂无进度更新', style: TextStyle(color: AppTheme.textSecondary)),
+                                  const SizedBox(width: 8),
+                                  if (authService.isLoggedIn && _project!.ownerId == authService.currentUser!.id)
+                                    GestureDetector(
+                                      onTap: () {
+                                        Navigator.push(
+                                          context,
+                                          MaterialPageRoute(
+                                            builder: (context) => AddProgressSimpleScreen(projectId: _project!.id),
+                                          ),
+                                        ).then((result) {
+                                          if (result == true) _loadProject();
+                                        });
+                                      },
+                                      child: const Text(
+                                        '新增进度记录',
+                                        style: TextStyle(
+                                          color: Colors.lightBlue,
+                                          fontSize: 14,
+                                        ),
+                                      ),
+                                    ),
+                                ],
+                              ),
+                            ],
+                          )
+                        else ...[
                           _buildProgressTimeline(),
+                          const SizedBox(height: 16),
+                          if (authService.isLoggedIn && _project!.ownerId == authService.currentUser!.id)
+                            Center(
+                              child: GestureDetector(
+                                onTap: () {
+                                  Navigator.push(
+                                    context,
+                                    MaterialPageRoute(
+                                      builder: (context) => AddProgressSimpleScreen(projectId: _project!.id),
+                                    ),
+                                  ).then((result) {
+                                    if (result == true) _loadProject();
+                                  });
+                                },
+                                child: const Text(
+                                  '新增进度记录',
+                                  style: TextStyle(
+                                    color: Colors.lightBlue,
+                                    fontSize: 14,
+                                  ),
+                                ),
+                              ),
+                            ),
+                        ],
                         
                         const SizedBox(height: 40),
                       ],
@@ -154,7 +224,7 @@ class _ProjectDetailScreenState extends State<ProjectDetailScreen> {
           border: Border(top: BorderSide(color: AppTheme.divider)),
         ),
         child: ElevatedButton.icon(
-          onPressed: () {
+          onPressed: _hasSubmittedIntent ? null : () {
             if (!authService.isLoggedIn) {
               _showError('请先登录');
               return;
@@ -164,10 +234,20 @@ class _ProjectDetailScreenState extends State<ProjectDetailScreen> {
               MaterialPageRoute(
                 builder: (context) => SubmitIntentScreen(projectId: _project!.id),
               ),
-            );
+            ).then((result) {
+              if (result == true) {
+                setState(() => _hasSubmittedIntent = true);
+              }
+            });
           },
           icon: const Icon(Icons.handshake_outlined),
-          label: const Text('我有意向合作'),
+          label: Text(_hasSubmittedIntent ? '已发合作意向' : '我有意向合作'),
+          style: _hasSubmittedIntent
+              ? ElevatedButton.styleFrom(
+                  backgroundColor: AppTheme.textSecondary.withValues(alpha: 0.1),
+                  foregroundColor: AppTheme.textSecondary,
+                )
+              : null,
         ),
       );
     }
@@ -179,9 +259,44 @@ class _ProjectDetailScreenState extends State<ProjectDetailScreen> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
+        Text.rich(
+          TextSpan(
+            children: [
+              WidgetSpan(
+                child: _buildStatusTag(_project!.status),
+                alignment: PlaceholderAlignment.middle,
+                baseline: TextBaseline.alphabetic,
+              ),
+              const WidgetSpan(child: SizedBox(width: 8)),
+              TextSpan(
+                text: _project!.title,
+                style: const TextStyle(
+                  fontSize: 24,
+                  fontWeight: FontWeight.bold,
+                  color: AppTheme.textPrimary,
+                  height: 1.3,
+                ),
+              ),
+            ],
+          ),
+        ),
+        const SizedBox(height: 12),
         Row(
           children: [
-            _buildStatusTag(_project!.status),
+            Container(
+              width: 24,
+              height: 24,
+              decoration: BoxDecoration(
+                color: AppTheme.divider,
+                shape: BoxShape.circle,
+              ),
+              child: const Icon(Icons.person, size: 14, color: AppTheme.textSecondary),
+            ),
+            const SizedBox(width: 8),
+            Text(
+              _project!.ownerNickname,
+              style: const TextStyle(color: AppTheme.textPrimary, fontWeight: FontWeight.w500),
+            ),
             const Spacer(),
             Text(
               _formatDate(_project!.createdAt),
@@ -189,89 +304,122 @@ class _ProjectDetailScreenState extends State<ProjectDetailScreen> {
             ),
           ],
         ),
-        const SizedBox(height: 12),
-        Text(
-          _project!.title,
-          style: const TextStyle(
-            fontSize: 24,
-            fontWeight: FontWeight.bold,
-            color: AppTheme.textPrimary,
-            height: 1.3,
+      ],
+    );
+  }
+
+  Widget _buildImageGallery() {
+    final images = _project!.images;
+    return SizedBox(
+      height: 240,
+      child: ListView.separated(
+        scrollDirection: Axis.horizontal,
+        itemCount: images.length,
+        separatorBuilder: (context, index) => const SizedBox(width: 12),
+        itemBuilder: (context, index) {
+          final imageUrl = _resolveImageUrl(images[index]);
+          return GestureDetector(
+            onTap: () => _viewImage(imageUrl),
+            child: ClipRRect(
+              borderRadius: BorderRadius.circular(12),
+              child: AspectRatio(
+                aspectRatio: 4 / 3,
+                child: Image.network(
+                  imageUrl,
+                  fit: BoxFit.cover,
+                  errorBuilder: (context, error, stackTrace) {
+                    return Container(
+                      color: AppTheme.divider,
+                      child: const Center(
+                        child: Icon(Icons.broken_image_outlined, color: AppTheme.textSecondary),
+                      ),
+                    );
+                  },
+                ),
+              ),
+            ),
+          );
+        },
+      ),
+    );
+  }
+
+  void _viewImage(String imageUrl) {
+    Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (context) => Scaffold(
+          backgroundColor: Colors.black,
+          appBar: AppBar(
+            backgroundColor: Colors.black,
+            iconTheme: const IconThemeData(color: Colors.white),
+          ),
+          body: Center(
+            child: InteractiveViewer(
+              child: Image.network(
+                imageUrl,
+                fit: BoxFit.contain,
+                errorBuilder: (context, error, stackTrace) {
+                  return const Center(
+                    child: Icon(Icons.broken_image_outlined, color: Colors.white, size: 48),
+                  );
+                },
+              ),
+            ),
           ),
         ),
-        const SizedBox(height: 12),
-        Row(
-          children: [
-            const CircleAvatar(
-              radius: 12,
-              backgroundColor: AppTheme.divider,
-              child: Icon(Icons.person, size: 14, color: AppTheme.textSecondary),
-            ),
-            const SizedBox(width: 8),
-            Text(
-              _project!.ownerNickname,
-              style: const TextStyle(color: AppTheme.textPrimary, fontWeight: FontWeight.w500),
-            ),
-          ],
-        ),
-      ],
+      ),
     );
   }
 
   Widget _buildInfoGrid() {
-    return Row(
-      children: [
-        Expanded(child: _buildInfoItem('领域', _project!.field)),
-        const SizedBox(width: 12),
-        Expanded(child: _buildInfoItem('类型', _project!.type)),
-        const SizedBox(width: 12),
-        Expanded(child: _buildInfoItem('阶段', _project!.stage)),
-      ],
-    );
-  }
-
-  Widget _buildInfoItem(String label, String value) {
     return Container(
-      padding: const EdgeInsets.all(12),
+      padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
-        color: AppTheme.background,
-        borderRadius: BorderRadius.circular(8),
+        color: AppTheme.surface,
+        borderRadius: BorderRadius.circular(12),
         border: Border.all(color: AppTheme.divider),
       ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
+      child: Row(
         children: [
-          Text(label, style: const TextStyle(fontSize: 12, color: AppTheme.textSecondary)),
-          const SizedBox(height: 4),
-          Text(
-            value, 
-            style: const TextStyle(
-              fontSize: 14, 
-              fontWeight: FontWeight.w600,
-              color: AppTheme.textPrimary,
-            ),
-            maxLines: 1,
-            overflow: TextOverflow.ellipsis,
-          ),
+          Expanded(child: _buildInfoItem('领域', _project!.field)),
+          const SizedBox(width: 12),
+          Expanded(child: _buildInfoItem('类型', _project!.type)),
+          const SizedBox(width: 12),
+          Expanded(child: _buildInfoItem('阶段', _project!.stage)),
         ],
       ),
     );
   }
 
-  Widget _buildSectionTitle(String title, IconData icon, Color color) {
-    return Row(
+  Widget _buildInfoItem(String label, String value) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Icon(icon, size: 20, color: color),
-        const SizedBox(width: 8),
+        Text(label, style: const TextStyle(fontSize: 12, color: AppTheme.textSecondary)),
+        const SizedBox(height: 4),
         Text(
-          title,
+          value, 
           style: const TextStyle(
-            fontSize: 18,
-            fontWeight: FontWeight.bold,
+            fontSize: 14, 
+            fontWeight: FontWeight.w600,
             color: AppTheme.textPrimary,
           ),
+          maxLines: 1,
+            overflow: TextOverflow.ellipsis,
         ),
       ],
+    );
+  }
+
+  Widget _buildSectionTitle(String title, IconData icon, Color color) {
+    return Text(
+      title,
+      style: const TextStyle(
+        fontSize: 16,
+        fontWeight: FontWeight.bold,
+        color: AppTheme.textPrimary,
+      ),
     );
   }
 
@@ -314,12 +462,12 @@ class _ProjectDetailScreenState extends State<ProjectDetailScreen> {
                     width: 12,
                     height: 12,
                     decoration: BoxDecoration(
-                      color: AppTheme.secondary,
+                      color: AppTheme.primary.withValues(alpha: 0.6),
                       shape: BoxShape.circle,
                       border: Border.all(color: Colors.white, width: 2),
                       boxShadow: [
                         BoxShadow(
-                          color: AppTheme.secondary.withValues(alpha: 0.3),
+                          color: AppTheme.primary.withValues(alpha: 0.2),
                           blurRadius: 4,
                         ),
                       ],
@@ -370,21 +518,21 @@ class _ProjectDetailScreenState extends State<ProjectDetailScreen> {
                                 padding: const EdgeInsets.all(12),
                                 width: double.infinity,
                                 decoration: BoxDecoration(
-                                  color: AppTheme.secondary.withValues(alpha: 0.05),
+                                  color: AppTheme.background,
                                   borderRadius: BorderRadius.circular(8),
                                   border: Border.all(
-                                    color: AppTheme.secondary.withValues(alpha: 0.1),
+                                    color: AppTheme.divider,
                                   ),
                                 ),
                                 child: Column(
                                   crossAxisAlignment: CrossAxisAlignment.start,
                                   children: [
                                     const Text(
-                                      '💡 小结',
+                                      '小结',
                                       style: TextStyle(
                                         fontSize: 12,
                                         fontWeight: FontWeight.bold,
-                                        color: AppTheme.secondary,
+                                        color: AppTheme.textSecondary,
                                       ),
                                     ),
                                     const SizedBox(height: 4),
@@ -454,5 +602,11 @@ class _ProjectDetailScreenState extends State<ProjectDetailScreen> {
 
   String _formatDate(DateTime date) {
     return '${date.year}-${date.month.toString().padLeft(2, '0')}-${date.day.toString().padLeft(2, '0')} ${date.hour.toString().padLeft(2, '0')}:${date.minute.toString().padLeft(2, '0')}';
+  }
+
+  String _resolveImageUrl(String value) {
+    if (value.startsWith('http')) return value;
+    if (value.startsWith('/')) return '${ApiService.baseUrl}$value';
+    return '${ApiService.baseUrl}/$value';
   }
 }

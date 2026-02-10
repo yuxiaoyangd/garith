@@ -23,4 +23,16 @@ db.exec(schema);
 
 console.log('Database initialized and connected');
 
+function ensureColumn(table, column, definition) {
+    const columns = db.prepare(`PRAGMA table_info(${table})`).all().map((col) => col.name);
+    if (!columns.includes(column)) {
+        db.exec(`ALTER TABLE ${table} ADD COLUMN ${column} ${definition}`);
+        console.log(`Added missing column ${table}.${column}`);
+    }
+}
+
+ensureColumn('users', 'avatar_url', 'TEXT');
+ensureColumn('users', 'bio', 'TEXT');
+ensureColumn('projects', 'images', 'TEXT');
+
 module.exports = db;

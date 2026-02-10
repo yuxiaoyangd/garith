@@ -75,14 +75,16 @@ class _AddProgressScreenState extends State<AddProgressScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
+      backgroundColor: AppTheme.background,
       appBar: AppBar(
+        backgroundColor: AppTheme.surface,
         title: const Text('更新项目进度'),
       ),
       body: Column(
         children: [
           Expanded(
             child: SingleChildScrollView(
-              padding: const EdgeInsets.all(24),
+              padding: const EdgeInsets.all(20),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
@@ -96,7 +98,11 @@ class _AddProgressScreenState extends State<AddProgressScreen> {
                     style: Theme.of(context).textTheme.bodyMedium,
                   ),
                   const SizedBox(height: 32),
-                  
+                  Card(
+                    child: Padding(
+                      padding: const EdgeInsets.all(16),
+                      child: Column(
+                        children: [
                   TextField(
                     controller: _contentController,
                     maxLines: 8,
@@ -145,6 +151,10 @@ class _AddProgressScreenState extends State<AddProgressScreen> {
                           ),
                         ),
                       ],
+                    ),
+                  ),
+                        ],
+                      ),
                     ),
                   ),
                 ],

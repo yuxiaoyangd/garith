@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'services/auth_service.dart';
-import 'screens/home_screen.dart';
+import 'screens/main_screen.dart';
 import 'screens/login_screen.dart';
 import 'theme.dart';
 
@@ -27,7 +27,7 @@ class GarithApp extends StatelessWidget {
       theme: AppTheme.lightTheme,
       home: Consumer<AuthService>(
         builder: (context, authService, child) {
-          return authService.isLoggedIn ? const HomeScreen() : const LoginScreen();
+          return authService.isLoggedIn ? const MainScreen() : const LoginScreen();
         },
       ),
     );

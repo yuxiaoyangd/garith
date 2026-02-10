@@ -83,4 +83,32 @@ class AuthService extends ChangeNotifier {
   Future<List<Project>> getMyProjects({String? status, int page = 1, int limit = 20}) async {
     return await _apiService.getMyProjects(status: status, page: page, limit: limit);
   }
+
+  // 刷新用户信息
+  Future<void> refreshUser() async {
+    if (_apiService.token != null) {
+      try {
+        _currentUser = await _apiService.getProfile();
+        notifyListeners();
+      } catch (e) {
+        debugPrint('RefreshUser failed: $e');
+      }
+    }
+  }
+
+  void updateAvatarUrl(String avatarUrl) {
+    final user = _currentUser;
+    if (user == null) return;
+
+    _currentUser = User(
+      id: user.id,
+      email: user.email,
+      nickname: user.nickname,
+      skills: List<String>.from(user.skills),
+      createdAt: user.createdAt,
+      avatarUrl: avatarUrl,
+      bio: user.bio,
+    );
+    notifyListeners();
+  }
 }
