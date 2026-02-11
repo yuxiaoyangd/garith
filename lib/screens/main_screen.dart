@@ -17,6 +17,7 @@ class MainScreen extends StatefulWidget {
 class _MainScreenState extends State<MainScreen> {
   int _currentIndex = 0;
   final ValueNotifier<int> _homeRefreshNotifier = ValueNotifier<int>(0);
+  DateTime? _lastBackPressTime;
 
   late final List<Widget> _pages;
 
@@ -35,40 +36,63 @@ class _MainScreenState extends State<MainScreen> {
     super.dispose();
   }
 
+  Future<bool> _handleWillPop() async {
+    final now = DateTime.now();
+    
+    if (_lastBackPressTime == null || 
+        now.difference(_lastBackPressTime!) > const Duration(seconds: 2)) {
+      _lastBackPressTime = now;
+      
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('再按一次退出'),
+          duration: Duration(seconds: 2),
+        ),
+      );
+      
+      return false;
+    }
+    
+    return true;
+  }
+
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      body: SafeArea(
-        child: IndexedStack(
-          index: _currentIndex,
-          children: _pages,
+    return WillPopScope(
+      onWillPop: _handleWillPop,
+      child: Scaffold(
+        body: SafeArea(
+          child: IndexedStack(
+            index: _currentIndex,
+            children: _pages,
+          ),
         ),
-      ),
-      bottomNavigationBar: Container(
-        decoration: const BoxDecoration(
-          color: AppTheme.surface,
-          border: Border(top: BorderSide(color: AppTheme.divider)),
-        ),
-        child: SafeArea(
-          child: Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-            child: Row(
-              mainAxisAlignment: MainAxisAlignment.spaceAround,
-              children: [
-                _buildNavItem(
-                  icon: Icons.home_outlined,
-                  activeIcon: Icons.home,
-                  label: '',
-                  index: 0,
-                ),
-                _buildPublishButton(),
-                _buildNavItem(
-                  icon: Icons.person_outline,
-                  activeIcon: Icons.person,
-                  label: '',
-                  index: 1,
-                ),
-              ],
+        bottomNavigationBar: Container(
+          decoration: const BoxDecoration(
+            color: AppTheme.surface,
+            border: Border(top: BorderSide(color: AppTheme.divider)),
+          ),
+          child: SafeArea(
+            child: Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+              child: Row(
+                mainAxisAlignment: MainAxisAlignment.spaceAround,
+                children: [
+                  _buildNavItem(
+                    icon: Icons.home_outlined,
+                    activeIcon: Icons.home,
+                    label: '',
+                    index: 0,
+                  ),
+                  _buildPublishButton(),
+                  _buildNavItem(
+                    icon: Icons.person_outline,
+                    activeIcon: Icons.person,
+                    label: '',
+                    index: 1,
+                  ),
+                ],
+              ),
             ),
           ),
         ),

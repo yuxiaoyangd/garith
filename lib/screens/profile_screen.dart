@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:image_picker/image_picker.dart';
+import 'package:url_launcher/url_launcher.dart';
 import '../services/auth_service.dart';
 import '../services/api_service.dart';
 import '../theme.dart';
@@ -257,7 +258,12 @@ class _ModernProfileScreenState extends State<ModernProfileScreen> {
               _MenuItem(
                 icon: Icons.help_outline,
                 title: '帮助与反馈',
-                onTap: () {},
+                onTap: () async {
+                  final url = Uri.parse('https://garith.jianjiemaa.com/public/help.html');
+                  if (await canLaunchUrl(url)) {
+                    await launchUrl(url, mode: LaunchMode.externalApplication);
+                  }
+                },
               ),
               _MenuItem(
                 icon: Icons.logout,

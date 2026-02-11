@@ -176,7 +176,7 @@ class _ModernHomeScreenState extends State<ModernHomeScreen> with SingleTickerPr
                   padding: const EdgeInsets.only(left: 16, right: 16),
                   child: Center(
                     child: Text(
-                      '亿合 APP',
+                      '亿合',
                       style: const TextStyle(
                         color: AppTheme.textPrimary,
                         fontWeight: FontWeight.w400,

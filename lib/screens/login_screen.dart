@@ -1,4 +1,5 @@
 ﻿import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
 import '../services/auth_service.dart';
 import '../theme.dart';
@@ -26,7 +27,7 @@ class _LoginScreenState extends State<LoginScreen> {
   Future<void> _sendCode() async {
     if (_loading) return;
     if (_emailController.text.isEmpty) {
-      _showError('Please enter your email');
+      _showError('请输入邮箱地址');
       return;
     }
 
@@ -37,7 +38,7 @@ class _LoginScreenState extends State<LoginScreen> {
       await authService.sendVerificationCode(_emailController.text);
       if (!mounted) return;
       setState(() => _codeSent = true);
-      _showSuccess('Verification code sent');
+      _showSuccess('验证码已发送');
     } catch (e) {
       if (!mounted) return;
       _showError(e.toString());
@@ -49,7 +50,7 @@ class _LoginScreenState extends State<LoginScreen> {
   Future<void> _login() async {
     if (_loading) return;
     if (_codeController.text.isEmpty) {
-      _showError('Please enter the verification code');
+      _showError('请输入验证码');
       return;
     }
 
@@ -62,7 +63,7 @@ class _LoginScreenState extends State<LoginScreen> {
         _codeController.text,
       );
       if (!mounted) return;
-      _showSuccess('Signed in');
+      _showSuccess('登录成功');
     } catch (e) {
       if (!mounted) return;
       _showError(e.toString());
@@ -87,46 +88,66 @@ class _LoginScreenState extends State<LoginScreen> {
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: AppTheme.background,
-      body: Center(
-        child: SingleChildScrollView(
-          padding: const EdgeInsets.all(24.0),
-          child: Column(
-            mainAxisAlignment: MainAxisAlignment.center,
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: [
-              const SizedBox(height: 24),
-              Text(
-                '亿合',
-                textAlign: TextAlign.center,
-                style: Theme.of(context).textTheme.displayLarge,
-              ),
-              const SizedBox(height: 8),
-              Text(
-                '连接 · 真实 · 共赢',
-                textAlign: TextAlign.center,
-                style: Theme.of(context).textTheme.bodyMedium,
-              ),
-              const SizedBox(height: 48),
+      body: SafeArea(
+        child: Center(
+          child: SingleChildScrollView(
+            padding: const EdgeInsets.symmetric(horizontal: 32.0, vertical: 24.0),
+            child: Column(
+              mainAxisAlignment: MainAxisAlignment.center,
+              crossAxisAlignment: CrossAxisAlignment.center,
+              children: [
+                const SizedBox(height: 40),
+                
+                // Brand Section
+                Column(
+                  children: [
+                    Text(
+                      '亿合',
+                      textAlign: TextAlign.center,
+                      style: Theme.of(context).textTheme.displayLarge?.copyWith(
+                        fontSize: 48,
+                        fontWeight: FontWeight.w900,
+                        letterSpacing: -2,
+                      ),
+                    ),
+                    const SizedBox(height: 12),
+                    Text(
+                      '连接 · 真诚 · 共赢',
+                      textAlign: TextAlign.center,
+                      style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                        fontSize: 16,
+                        letterSpacing: 1.2,
+                        color: AppTheme.textSecondary,
+                      ),
+                    ),
+                  ],
+                ),
+                
+                const SizedBox(height: 60),
 
-              // Form Area
-              Card(
-                child: Padding(
-                  padding: const EdgeInsets.all(16),
+                // Form Section
+                Container(
+                  width: double.infinity,
+                  constraints: const BoxConstraints(maxWidth: 400),
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.stretch,
                     children: [
+                      // Email Field
                       TextField(
                         controller: _emailController,
                         keyboardType: TextInputType.emailAddress,
-                        style: Theme.of(context).textTheme.bodyLarge,
+                        style: Theme.of(context).textTheme.bodyLarge?.copyWith(
+                          fontSize: 16,
+                        ),
                         decoration: const InputDecoration(
                           labelText: '邮箱地址',
-                          prefixIcon: Icon(Icons.email_outlined),
                           hintText: '请输入邮箱地址',
                         ),
                         enabled: !_loading,
                       ),
-                      const SizedBox(height: 16),
+                      const SizedBox(height: 24),
+                      
+                      // Verification Code Row
                       Row(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
@@ -134,56 +155,98 @@ class _LoginScreenState extends State<LoginScreen> {
                             child: TextField(
                               controller: _codeController,
                               keyboardType: TextInputType.number,
-                              style: Theme.of(context).textTheme.bodyLarge,
+                              maxLength: 6,
+                              inputFormatters: [
+                                FilteringTextInputFormatter.digitsOnly,
+                              ],
+                              style: Theme.of(context).textTheme.bodyLarge?.copyWith(
+                                fontSize: 16,
+                              ),
                               decoration: const InputDecoration(
                                 labelText: '验证码',
-                                prefixIcon: Icon(Icons.lock_outline),
                                 hintText: '6位数字验证码',
+                                counterText: '',
                               ),
                               enabled: !_loading,
                             ),
                           ),
-                          const SizedBox(width: 12),
+                          const SizedBox(width: 16),
                           SizedBox(
                             height: 56,
                             child: OutlinedButton(
                               onPressed: _loading ? null : _sendCode,
                               style: OutlinedButton.styleFrom(
-                                padding: const EdgeInsets.symmetric(horizontal: 16),
+                                padding: const EdgeInsets.symmetric(horizontal: 20),
+                                side: const BorderSide(color: AppTheme.primary, width: 1.5),
+                                shape: RoundedRectangleBorder(
+                                  borderRadius: BorderRadius.circular(12),
+                                ),
                               ),
-                              child: Text(_codeSent ? '重新发送' : '获取验证码'),
+                              child: Text(
+                                _codeSent ? '重新发送' : '获取验证码',
+                                style: const TextStyle(
+                                  fontSize: 14,
+                                  fontWeight: FontWeight.w600,
+                                ),
+                              ),
                             ),
                           ),
                         ],
                       ),
-                      const SizedBox(height: 32),
-                      ElevatedButton(
-                        onPressed: _loading ? null : _login,
-                        child: _loading
-                            ? const SizedBox(
-                                height: 20,
-                                width: 20,
-                                child: CircularProgressIndicator(
-                                  strokeWidth: 2,
-                                  color: Colors.white,
-                                ),
-                              )
-                            : const Text('登录'),
+                      const SizedBox(height: 40),
+                      
+                      // Login Button
+                      SizedBox(
+                        width: double.infinity,
+                        height: 56,
+                        child: ElevatedButton(
+                          onPressed: _loading ? null : _login,
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: AppTheme.primary,
+                            foregroundColor: Colors.white,
+                            elevation: 0,
+                            shadowColor: Colors.transparent,
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(16),
+                            ),
+                            textStyle: const TextStyle(
+                              fontSize: 16,
+                              fontWeight: FontWeight.w600,
+                              letterSpacing: 0.5,
+                            ),
+                          ),
+                          child: _loading
+                              ? const SizedBox(
+                                  height: 24,
+                                  width: 24,
+                                  child: CircularProgressIndicator(
+                                    strokeWidth: 2.5,
+                                    color: Colors.white,
+                                  ),
+                                )
+                              : const Text('登录'),
+                        ),
                       ),
                     ],
                   ),
                 ),
-              ),
 
-              const SizedBox(height: 24),
-              Text(
-                '无需注册，首次登录自动创建账户。',
-                textAlign: TextAlign.center,
-                style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                  color: AppTheme.textSecondary.withValues(alpha: 0.7),
+                const SizedBox(height: 40),
+                
+                // Footer Text
+                Text(
+                  '无需注册，首次登录自动创建账户。',
+                  textAlign: TextAlign.center,
+                  style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                    fontSize: 13,
+                    color: AppTheme.textSecondary.withValues(alpha: 0.8),
+                    height: 1.4,
+                  ),
                 ),
-              ),
-            ],
+                
+                const SizedBox(height: 20),
+              ],
+            ),
           ),
         ),
       ),

@@ -1,0 +1,726 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>亿合 Garith - 需求合并平台 | 连接项目与能力，实现资源共赢</title>
+    <meta name="description" content="亿合（Garith）是专业的需求合并平台，项目方可发布项目找合伙人/资金，能力方可展示技能找项目，高效匹配资源，实现合作共赢。">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <style>
+        :root {
+            /* 浅蓝色系主题 */
+            --bg-color: #F8FAFC; /* 极浅的灰蓝背景 */
+            --primary-color: #0EA5E9; /* 天蓝色 */
+            --primary-dark: #0284C7;
+            --accent-color: #E0F2FE; /* 淡蓝装饰色 */
+            --text-main: #0F172A; /* 深色文字 */
+            --text-sub: #475569; /* 次级文字 */
+            --card-bg: rgba(255, 255, 255, 0.8);
+            --shadow-sm: 0 4px 6px -1px rgba(0, 0, 0, 0.05), 0 2px 4px -1px rgba(0, 0, 0, 0.03);
+            --shadow-lg: 0 20px 25px -5px rgba(14, 165, 233, 0.15), 0 10px 10px -5px rgba(14, 165, 233, 0.1);
+            --border-color: rgba(148, 163, 184, 0.25);
+            --radius-sm: 12px;
+            --radius-md: 16px;
+            --radius-lg: 20px;
+            --ease-out: cubic-bezier(0.16, 1, 0.3, 1);
+        }
+
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+        }
+
+        body {
+            background-color: var(--bg-color);
+            color: var(--text-main);
+            overflow-x: hidden;
+            line-height: 1.6;
+            text-rendering: optimizeLegibility;
+            -webkit-font-smoothing: antialiased;
+            -moz-osx-font-smoothing: grayscale;
+        }
+
+        body::before {
+            content: '';
+            position: fixed;
+            inset: 0;
+            pointer-events: none;
+            z-index: -2;
+            background:
+                radial-gradient(800px 500px at 80% 0%, rgba(14, 165, 233, 0.10), transparent 60%),
+                radial-gradient(800px 500px at 0% 80%, rgba(37, 99, 235, 0.08), transparent 60%),
+                linear-gradient(to bottom, rgba(15, 23, 42, 0.02), transparent 35%);
+        }
+
+        /* 柔和的背景光斑 */
+        .bg-blob {
+            position: absolute;
+            border-radius: 50%;
+            filter: blur(80px);
+            z-index: -1;
+            opacity: 0.6;
+        }
+        .blob-1 {
+            top: -10%;
+            right: -5%;
+            width: 600px;
+            height: 600px;
+            background: #BAE6FD;
+        }
+        .blob-2 {
+            bottom: 10%;
+            left: -10%;
+            width: 500px;
+            height: 500px;
+            background: #E0F2FE;
+        }
+
+        /* 导航栏 */
+        nav {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 20px 5%;
+            background: rgba(255, 255, 255, 0.7);
+            backdrop-filter: blur(12px);
+            position: fixed;
+            width: 100%;
+            top: 0;
+            z-index: 100;
+            box-shadow: 0 1px 0 rgba(0,0,0,0.05);
+            border-bottom: 1px solid rgba(255, 255, 255, 0.2);
+        }
+
+        .logo {
+            font-size: 1.5rem;
+            font-weight: 800;
+            color: var(--primary-dark);
+            letter-spacing: -0.5px;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+        
+        .logo-img {
+            width: 32px;
+            height: 32px;
+            border-radius: 8px;
+            object-fit: contain;
+        }
+
+        /* 核心区域：左右布局 */
+        .hero-section {
+            max-width: 1280px;
+            margin: 0 auto;
+            min-height: 100vh;
+            display: flex; /* Flex布局实现左右排列 */
+            align-items: center;
+            justify-content: space-between;
+            padding: 120px 40px 60px;
+            gap: 60px;
+        }
+
+        /* 左侧文字区 */
+        .hero-content {
+            flex: 1;
+            max-width: 600px;
+        }
+
+        h1 {
+            font-size: 3.5rem;
+            line-height: 1.1;
+            margin-bottom: 24px;
+            font-weight: 800;
+            color: var(--text-main);
+            letter-spacing: -0.03em;
+        }
+
+        .highlight-text {
+            background: linear-gradient(135deg, var(--primary-color), #2563EB);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+            position: relative;
+            display: inline-block;
+        }
+        
+        /* 简单的下划线装饰 */
+        .highlight-text::after {
+            content: '';
+            position: absolute;
+            bottom: 4px;
+            left: 0;
+            width: 100%;
+            height: 12px;
+            background: var(--accent-color);
+            z-index: -1;
+            transform: skewX(-15deg);
+            display: none;
+        }
+
+        .subtitle {
+            font-size: 1.25rem;
+            color: var(--text-sub);
+            margin-bottom: 40px;
+            font-weight: 400;
+            max-width: 52ch;
+        }
+
+        /* 按钮样式 */
+        .btn-primary {
+            display: inline-flex;
+            align-items: center;
+            gap: 12px;
+            background: linear-gradient(135deg, #0EA5E9 0%, #2563EB 100%);
+            color: white;
+            padding: 16px 48px;
+            border-radius: 12px;
+            text-decoration: none;
+            font-weight: 600;
+            font-size: 1.1rem;
+            transition: transform 0.35s var(--ease-out), box-shadow 0.35s var(--ease-out), filter 0.35s var(--ease-out);
+            box-shadow: 0 10px 20px -5px rgba(14, 165, 233, 0.4);
+            position: relative;
+            will-change: transform;
+        }
+
+        .btn-primary:hover {
+            transform: translateY(-3px);
+            box-shadow: 0 15px 30px -5px rgba(14, 165, 233, 0.5);
+        }
+
+        .btn-primary:active {
+            transform: translateY(-1px);
+            filter: brightness(0.98);
+        }
+
+        .btn-primary:focus-visible {
+            outline: none;
+            box-shadow: 0 0 0 4px rgba(14, 165, 233, 0.25), 0 15px 30px -5px rgba(14, 165, 233, 0.5);
+        }
+
+        /* 右侧图片区（3D手机） */
+        .hero-image {
+            flex: 1;
+            display: flex;
+            justify-content: center;
+            position: relative;
+        }
+
+        /* 手机外壳 CSS模拟 */
+        .phone-mockup {
+            width: 320px;
+            height: 640px;
+            background: #fff;
+            border-radius: 48px;
+            border: 12px solid #1e293b; /* 深灰边框 */
+            box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.25);
+            overflow: hidden;
+            position: relative;
+            transform: rotateY(-15deg) rotateX(5deg);
+            transition: transform 0.6s var(--ease-out);
+            transform-style: preserve-3d;
+        }
+        
+        .hero-image:hover .phone-mockup {
+            transform: rotateY(0) rotateX(0);
+        }
+
+        /* 模拟APP界面内容 - 浅色系 */
+        .app-screen {
+            width: 100%;
+            height: 100%;
+            background: #F8FAFC;
+            padding: 20px;
+            display: flex;
+            flex-direction: column;
+        }
+        
+        .app-nav-top { height: 20px; margin-bottom: 20px; display:flex; justify-content:space-between; }
+        .skeleton { background: #E2E8F0; border-radius: 6px; }
+        .app-card { background: white; padding: 16px; border-radius: 16px; margin-bottom: 16px; box-shadow: 0 2px 8px rgba(0,0,0,0.03); }
+        .tag { display: inline-block; padding: 4px 8px; background: #E0F2FE; color: #0284C7; border-radius: 6px; font-size: 10px; font-weight: bold; margin-bottom: 8px;}
+
+        /* 特性区域 */
+        .features-section {
+            padding: 0 40px 100px;
+            max-width: 1280px;
+            margin: 0 auto;
+        }
+
+        .section-title {
+            text-align: center;
+            font-size: 2rem;
+            margin-bottom: 60px;
+            color: var(--text-main);
+            letter-spacing: -0.02em;
+        }
+
+        /* 网格排版核心逻辑 */
+        .features-grid {
+            display: grid;
+            gap: 30px;
+            /* 默认大屏：4列，每列等宽 */
+            grid-template-columns: repeat(4, 1fr);
+        }
+
+        .feature-card {
+            background: rgba(255, 255, 255, 0.78);
+            padding: 32px 24px;
+            border-radius: var(--radius-lg);
+            border: 1px solid var(--border-color);
+            transition: transform 0.45s var(--ease-out), box-shadow 0.45s var(--ease-out), border-color 0.45s var(--ease-out);
+            display: flex;
+            flex-direction: column;
+            align-items: flex-start;
+            position: relative;
+            overflow: hidden;
+            backdrop-filter: blur(10px);
+        }
+
+        .feature-card:hover {
+            transform: translateY(-8px);
+            box-shadow: var(--shadow-lg);
+            border-color: #BAE6FD;
+        }
+
+        .icon-box {
+            width: 56px;
+            height: 56px;
+            background: linear-gradient(135deg, #E0F2FE, #BAE6FD);
+            color: var(--primary-color);
+            border-radius: 16px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 1.6rem;
+            margin-bottom: 20px;
+            transition: transform 0.45s var(--ease-out), box-shadow 0.45s var(--ease-out);
+        }
+
+        .feature-card:hover .icon-box {
+            transform: scale(1.06);
+            box-shadow: inset 0 0 0 1px rgba(2, 132, 199, 0.12), 0 8px 16px rgba(14, 165, 233, 0.2);
+        }
+
+        .feature-card h3 {
+            font-size: 1.25rem;
+            margin-bottom: 12px;
+            color: var(--text-main);
+        }
+
+        .feature-card p {
+            color: var(--text-sub);
+            font-size: 0.95rem;
+            line-height: 1.6;
+        }
+
+        /* 底部信息 */
+        footer {
+            background: white;
+            border-top: 1px solid #F1F5F9;
+            padding: 80px 40px 40px;
+        }
+
+        .footer-container {
+            max-width: 1280px;
+            margin: 0 auto;
+            display: flex;
+            flex-wrap: wrap;
+            justify-content: space-between;
+            gap: 40px;
+        }
+
+        .footer-left {
+            max-width: 400px;
+        }
+
+        .footer-left h2 {
+            color: var(--primary-dark);
+            margin-bottom: 16px;
+        }
+
+        .contact-info {
+            display: flex;
+            flex-direction: column;
+            gap: 16px;
+        }
+
+        .contact-item {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            color: var(--text-sub);
+            font-size: 0.95rem;
+        }
+
+        .contact-item i {
+            color: var(--primary-color);
+            width: 20px;
+        }
+        
+        .contact-item a {
+            color: var(--text-sub);
+            text-decoration: none;
+            transition: color 0.2s;
+        }
+        
+        .contact-item a:hover {
+            color: var(--primary-color);
+        }
+
+        .copyright {
+            margin-top: 60px;
+            text-align: center;
+            color: #94A3B8;
+            font-size: 0.875rem;
+        }
+
+        /* 响应式媒体查询 */
+
+        /* 平板尺寸 (iPad等) */
+        @media (max-width: 1024px) {
+            h1 { font-size: 2.8rem; }
+
+            .features-grid {
+                grid-template-columns: repeat(2, 1fr);
+            }
+
+            .hero-section {
+                padding: 100px 20px 60px;
+                gap: 30px;
+            }
+
+            .phone-mockup {
+                width: 280px;
+                height: 560px;
+            }
+        }
+
+        /* 手机尺寸 */
+        @media (max-width: 768px) {
+            .hero-section {
+                flex-direction: column;
+                text-align: center;
+                padding-top: 100px;
+            }
+
+            .hero-content {
+                max-width: 100%;
+                display: flex;
+                flex-direction: column;
+                align-items: center;
+            }
+
+            .hero-image {
+                width: 100%;
+                margin-top: 20px;
+            }
+
+            .phone-mockup {
+                transform: none !important;
+            }
+
+            .features-grid {
+                grid-template-columns: 1fr;
+            }
+
+            h1 { font-size: 2.2rem; }
+
+            .features-section {
+                padding: 0 20px 80px;
+            }
+
+            nav {
+                padding: 16px 5%;
+            }
+
+            .footer-container {
+                flex-direction: column;
+            }
+        }
+
+        .support-info {
+            margin-top: 15px;
+            font-size: 16px;
+            color: #64748b;
+            text-align: center;
+            font-weight: 500;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 8px;
+        }
+
+        .support-info i {
+            color: var(--primary-color);
+            font-size: 14px;
+        }
+
+        /* 优化手机模型动画 */
+        .phone-mockup {
+            animation: float 6s ease-in-out infinite;
+        }
+
+        @keyframes float {
+            0%, 100% { transform: rotateY(-15deg) rotateX(5deg) translateY(0px); }
+            50% { transform: rotateY(-15deg) rotateX(5deg) translateY(-10px); }
+        }
+
+        .hero-image:hover .phone-mockup {
+            transform: rotateY(0) rotateX(0) translateY(0px);
+            animation: none;
+        }
+
+        .feature-card::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            height: 3px;
+            background: linear-gradient(90deg, var(--primary-color), var(--accent-color));
+            transform: scaleX(0);
+            transition: transform 0.3s ease;
+        }
+
+        .feature-card:hover::before {
+            transform: scaleX(1);
+        }
+
+        /* 优化底部 */
+        .footer-container {
+            padding-bottom: 20px;
+        }
+
+        .copyright {
+            margin-top: 40px;
+            padding-top: 20px;
+            border-top: 1px solid #F1F5F9;
+        }
+
+        /* 二维码悬浮效果 */
+        .qr-tooltip {
+            position: absolute;
+            top: -160px;
+            left: 50%;
+            transform: translateX(-50%) scale(0.8);
+            background: white;
+            padding: 12px;
+            border-radius: 10px;
+            box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.1);
+            opacity: 0;
+            visibility: hidden;
+            transition: all 0.4s cubic-bezier(0.34, 1.56, 0.64, 1);
+            z-index: 1000;
+            border: 1px solid #E2E8F0;
+        }
+
+        .qr-tooltip::after {
+            content: '';
+            position: absolute;
+            bottom: -6px;
+            left: 50%;
+            transform: translateX(-50%);
+            width: 0;
+            height: 0;
+            border-left: 6px solid transparent;
+            border-right: 6px solid transparent;
+            border-top: 6px solid white;
+        }
+
+        .qr-tooltip img {
+            width: 120px;
+            height: 120px;
+            display: block;
+            border-radius: 6px;
+            transition: transform 0.3s ease;
+        }
+
+        .qr-tooltip .qr-text {
+            text-align: center;
+            margin-top: 6px;
+            font-size: 11px;
+            color: #64748b;
+            font-weight: 500;
+        }
+
+        .btn-primary:hover .qr-tooltip {
+            opacity: 1;
+            visibility: visible;
+            transform: translateX(-50%) scale(1);
+            top: -170px;
+        }
+
+        .btn-primary:hover .qr-tooltip img {
+            transform: scale(1.05);
+        }
+
+        @media (prefers-reduced-motion: reduce) {
+            *, *::before, *::after {
+                animation-duration: 0.01ms !important;
+                animation-iteration-count: 1 !important;
+                transition-duration: 0.01ms !important;
+                scroll-behavior: auto !important;
+            }
+            .phone-mockup {
+                animation: none !important;
+            }
+        }
+    </style>
+</head>
+<body>
+
+    <!-- 背景装饰 -->
+    <div class="bg-blob blob-1"></div>
+    <div class="bg-blob blob-2"></div>
+
+    <nav>
+        <div class="logo">
+            亿合
+        </div>
+        <!-- 可以在这里加一个小的下载按钮或者导航链接 -->
+    </nav>
+
+    <!-- Hero区域：左右布局 -->
+    <section class="hero-section">
+        <!-- 左侧内容 -->
+<div class="hero-content">
+    <h1>需求合并 · 资源匹配<br><span class="highlight-text">“亿”起共赢</span></h1>
+    <p class="subtitle">
+        亿合 是专业的需求合并平台。项目方可发布项目需求，寻找合伙人、资金或各类资源；能力方可展示技能优势，精准匹配合适项目，让价值快速落地。
+    </p>
+    <a href="https://garith.jianjiemaa.com/release/garith.apk" class="btn-primary">
+        <i class="fa-brands fa-android fa-lg"></i>
+        下载 Android 客户端
+        <div class="qr-tooltip">
+            <img src="images/APP_QR_code.png" alt="APP下载二维码">
+            <div class="qr-text">扫码下载APP</div>
+        </div>
+    </a>
+</div>
+
+        <!-- 右侧视觉 -->
+        <div class="hero-image">
+            <div class="phone-mockup">
+                <!-- CSS绘制的APP UI演示 -->
+                <div class="app-screen">
+                    <div class="app-nav-top">
+                        <div class="skeleton" style="width: 20px; height: 20px;"></div>
+                        <div class="skeleton" style="width: 60px; height: 20px;"></div>
+                    </div>
+                    
+                    <!-- 卡片1 -->
+                    <div class="app-card">
+                        <div class="tag">发布项目</div>
+                        <div class="skeleton" style="width: 80%; height: 16px; margin-bottom: 8px; background: #334155;"></div>
+                        <div class="skeleton" style="width: 60%; height: 12px; margin-bottom: 12px;"></div>
+                        <div style="display:flex; justify-content:space-between; align-items:center;">
+                            <div style="display:flex; gap:8px;">
+                                <div class="skeleton" style="width: 24px; height: 24px; border-radius:50%;"></div>
+                                <div class="skeleton" style="width: 40px; height: 12px; margin-top:6px;"></div>
+                            </div>
+                            <div class="skeleton" style="width: 60px; height: 24px; border-radius:12px; background:#E0F2FE;"></div>
+                        </div>
+                    </div>
+
+                    <!-- 卡片2 -->
+                    <div class="app-card">
+                        <div class="tag" style="background:#DCFCE7; color:#166534;">展示技能</div>
+                        <div class="skeleton" style="width: 70%; height: 16px; margin-bottom: 8px; background: #334155;"></div>
+                        <div class="skeleton" style="width: 90%; height: 12px; margin-bottom: 6px;"></div>
+                        <div class="skeleton" style="width: 50%; height: 12px; margin-bottom: 12px;"></div>
+                    </div>
+
+                    <!-- 悬浮按钮 -->
+                    <div style="margin-top:auto; align-self:center; width:50px; height:50px; background:#0EA5E9; border-radius:25px; box-shadow:0 10px 20px rgba(14,165,233,0.3); display:flex; align-items:center; justify-content:center; color:white;">
+                        <i class="fa-solid fa-plus"></i>
+                    </div>
+                    <div style="height:20px;"></div>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- 特性区域 -->
+    <section class="features-section">
+        <h2 class="section-title">核心功能</h2>
+        
+        <!-- Grid网格容器：大屏4列，中屏2列，小屏1列 -->
+        <div class="features-grid">
+            <div class="feature-card">
+                <div class="icon-box"><i class="fa-solid fa-paper-plane"></i></div>
+                <h3>发布项目需求</h3>
+                <p>项目方可一键发布需求，清晰描述项目背景、所需资源（合伙人/资金/技术），精准触达目标人群。</p>
+            </div>
+            
+            <div class="feature-card">
+                <div class="icon-box"><i class="fa-solid fa-code"></i></div>
+                <h3>展示技能优势</h3>
+                <p>能力方可搭建专属技能档案，展示技术栈、过往案例与服务优势，让优质项目主动找到你。</p>
+            </div>
+            
+            <div class="feature-card">
+                <div class="icon-box"><i class="fa-regular fa-handshake"></i></div>
+                <h3>双向精准匹配</h3>
+                <p>基于需求与能力的智能匹配，支持双向发送合作意向，过滤无效沟通，提升对接效率。</p>
+            </div>
+            
+            <div class="feature-card">
+                <div class="icon-box"><i class="fa-solid fa-list-check"></i></div>
+                <h3>资源整合管理</h3>
+                <p>内置资源管理工具，支持跟踪合作进度、管理对接资源，让需求合并与合作落地更高效。</p>
+            </div>
+        </div>
+    </section>
+
+    <!-- 底部 -->
+    <footer>
+        <div class="footer-container">
+            <div class="footer-left">
+                <h2>Garith 亿合</h2>
+                <p style="color: var(--text-sub); margin-bottom: 20px;">
+                    高效合并需求，精准匹配资源。<br>
+                    让每一个项目找到合适的伙伴，每一项技能创造应有价值。
+                </p>
+                <div style="display: flex; gap: 16px; flex-wrap: wrap;">
+                    <a href="https://garith.jianjiemaa.com/release/garith.apk" class="btn-primary" style="padding: 12px 24px; font-size: 0.95rem;">
+                        <i class="fa-brands fa-android"></i>
+                        立即下载
+                        <div class="qr-tooltip">
+                            <img src="images/APP_QR_code.png" alt="APP下载二维码">
+                            <div class="qr-text">扫码下载APP</div>
+                        </div>
+                    </a>
+                    <a href="mailto:jianjieluan@163.com" class="btn-primary" style="background: linear-gradient(135deg, #64748b, #475569); padding: 12px 24px; font-size: 0.95rem;">
+                        <i class="fa-solid fa-envelope"></i>
+                        联系我们
+                    </a>
+                </div>
+            </div>
+
+            <div class="footer-right">
+                <h3 style="margin-bottom: 20px; color: var(--text-main);">联系方式</h3>
+                <div class="contact-info">
+                    <div class="contact-item">
+                        <i class="fa-solid fa-envelope"></i>
+                        <a href="mailto:jianjieluan@163.com">jianjieluan@163.com</a>
+                    </div>
+                    <div class="contact-item">
+                        <i class="fa-solid fa-phone"></i>
+                        <a href="tel:18555388972">185-5538-8972</a>
+                    </div>
+                    <div class="contact-item" style="align-items: flex-start;">
+                        <i class="fa-solid fa-location-dot" style="margin-top: 4px;"></i>
+                        <span>安徽省六安市裕安区清溪路<br>丰泰社区33号</span>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+    </footer>
+
+</body>
+</html>
