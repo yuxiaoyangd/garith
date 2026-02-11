@@ -3,7 +3,7 @@ import 'package:provider/provider.dart';
 import '../services/auth_service.dart';
 import '../models/project.dart';
 import '../screens/project_detail_screen.dart';
-import '../screens/project_intents_screen.dart';
+import '../screens/my_intents_screen.dart';
 import '../theme.dart';
 
 class MyProjectsScreen extends StatefulWidget {
@@ -25,6 +25,7 @@ class _MyProjectsScreenState extends State<MyProjectsScreen> {
   }
 
   Future<void> _loadProjects() async {
+    if (!mounted) return;
     setState(() => _loading = true);
     
     try {
@@ -32,7 +33,9 @@ class _MyProjectsScreenState extends State<MyProjectsScreen> {
       final projects = await authService.getMyProjects(
         status: _selectedStatus.isEmpty ? null : _selectedStatus,
       );
-      setState(() => _projects = projects);
+      if (mounted) {
+        setState(() => _projects = projects);
+      }
     } catch (e) {
       if (!mounted) return;
       final authService = Provider.of<AuthService>(context, listen: false);
@@ -45,7 +48,9 @@ class _MyProjectsScreenState extends State<MyProjectsScreen> {
       }
       _showError(e.toString());
     } finally {
-      setState(() => _loading = false);
+      if (mounted) {
+        setState(() => _loading = false);
+      }
     }
   }
 
@@ -251,9 +256,9 @@ class _MyProjectsScreenState extends State<MyProjectsScreen> {
                       Navigator.push(
                         context,
                         MaterialPageRoute(
-                          builder: (context) => ProjectIntentsScreen(
+                          builder: (context) => MyIntentsScreen(
                             projectId: project.id,
-                            projectTitle: project.title,
+                            isProjectOwnerView: true,
                           ),
                         ),
                       );

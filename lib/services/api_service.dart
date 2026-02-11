@@ -408,7 +408,11 @@ class ApiService {
   Future<void> markNotificationAsRead(int notificationId) async {
     final response = await http.patch(
       Uri.parse('$baseUrl/notifications/$notificationId/read'),
-      headers: _headers,
+      headers: {
+        ..._headers,
+        'Content-Type': 'application/json',
+      },
+      body: '{}',
     );
 
     if (response.statusCode != 200) {
@@ -419,7 +423,11 @@ class ApiService {
   Future<void> markAllNotificationsAsRead() async {
     final response = await http.patch(
       Uri.parse('$baseUrl/notifications/read-all'),
-      headers: _headers,
+      headers: {
+        ..._headers,
+        'Content-Type': 'application/json',
+      },
+      body: '{}',
     );
 
     if (response.statusCode != 200) {

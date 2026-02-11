@@ -4,9 +4,17 @@ import '../services/auth_service.dart';
 import '../models/intent.dart' as models;
 import '../theme.dart';
 import 'project_detail_screen.dart';
+import 'intent_detail_screen.dart';
 
 class MyIntentsScreen extends StatefulWidget {
-  const MyIntentsScreen({super.key});
+  final int? projectId; // 指定项目ID，用于查看特定项目的意向
+  final bool isProjectOwnerView; // 是否作为项目所有者查看收到的意向
+  
+  const MyIntentsScreen({
+    super.key,
+    this.projectId,
+    this.isProjectOwnerView = false,
+  });
 
   @override
   State<MyIntentsScreen> createState() => _MyIntentsScreenState();
@@ -27,7 +35,16 @@ class _MyIntentsScreenState extends State<MyIntentsScreen> {
     
     try {
       final authService = Provider.of<AuthService>(context, listen: false);
-      final intents = await authService.apiService.getMyIntents();
+      List<models.Intent> intents;
+      
+      if (widget.isProjectOwnerView && widget.projectId != null) {
+        // 作为项目所有者查看收到的意向
+        intents = await authService.apiService.getProjectIntents(widget.projectId!);
+      } else {
+        // 查看自己发送的意向
+        intents = await authService.apiService.getMyIntents();
+      }
+      
       if (!mounted) return;
       setState(() => _intents = intents);
     } catch (e) {
@@ -57,7 +74,7 @@ class _MyIntentsScreenState extends State<MyIntentsScreen> {
     return Scaffold(
       backgroundColor: AppTheme.background,
       appBar: AppBar(
-        title: const Text('我参与的意向'),
+        title: Text(widget.isProjectOwnerView ? '收到的合作意向' : '我参与的意向'),
         elevation: 0,
         backgroundColor: AppTheme.surface,
       ),
@@ -107,13 +124,33 @@ class _MyIntentsScreenState extends State<MyIntentsScreen> {
       ),
       child: InkWell(
         onTap: () {
-          // Navigate to Project Details
+          // Navigate to Intent Details
           Navigator.push(
             context,
             MaterialPageRoute(
-              builder: (context) => ProjectDetailScreen(projectId: intent.projectId),
+              builder: (context) => IntentDetailScreen(
+                intent: {
+                  'id': intent.id,
+                  'project_id': intent.projectId,
+                  'project_owner_id': intent.projectOwnerId,
+                  'user_id': intent.userId,
+                  'nickname': intent.userNickname,
+                  'email': intent.userEmail,
+                  'offer': intent.offer,
+                  'expect': intent.expect,
+                  'contact': intent.contact,
+                  'status': intent.status,
+                  'created_at': intent.createdAt,
+                },
+                projectTitle: intent.projectTitle ?? '未命名项目',
+              ),
             ),
-          );
+          ).then((result) {
+            // 如果从详情页返回且有更新，刷新列表
+            if (result == true) {
+              _loadIntents();
+            }
+          });
         },
         child: Padding(
           padding: const EdgeInsets.all(20),

@@ -1,4 +1,5 @@
 const { authenticateToken } = require('../middleware/auth');
+const { createNotification } = require('./notifications');
 
 // 提交合作意向
 async function submitIntent(request, reply) {
@@ -31,6 +32,16 @@ async function submitIntent(request, reply) {
         INSERT INTO intents (project_id, user_id, offer, expect, contact)
         VALUES (?, ?, ?, ?, ?)
     `).run(id, user.id, offer, expect, contact);
+    
+    // 创建通知给项目所有者
+    createNotification(request.server.db, {
+        to_user_id: project.owner_id,
+        from_user_id: user.id,
+        type: 'intent_received',
+        title: '新的合作意向',
+        content: `${user.nickname || '用户'}对你的项目"${project.title}"发送了合作意向`,
+        related_id: result.lastInsertRowid
+    });
     
     return reply.send({ 
         id: result.lastInsertRowid,

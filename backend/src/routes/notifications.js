@@ -6,7 +6,13 @@ async function getNotifications(request, reply) {
     const { page = 1, limit = 20, unread_only = false } = request.query;
     
     let query = `
-        SELECT n.*, u.nickname as from_user_nickname
+        SELECT n.*, u.nickname as from_user_nickname, 
+               CASE 
+                   WHEN n.type = 'intent_received' THEN (
+                       SELECT i.project_id FROM intents i WHERE i.id = n.related_id
+                   )
+                   ELSE NULL
+               END as project_id
         FROM notifications n
         LEFT JOIN users u ON n.from_user_id = u.id
         WHERE n.to_user_id = ?

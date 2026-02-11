@@ -227,7 +227,7 @@ class _ModernProfileScreenState extends State<ModernProfileScreen> {
                       _buildVerticalDivider(),
                       _buildStatItem('意向', stats?['intents']?.toString() ?? '0'),
                       _buildVerticalDivider(),
-                      _buildStatItem('合作', stats?['collaborations']?.toString() ?? '0'),
+                      _buildStatItem('收到合作', stats?['collaborations']?.toString() ?? '0'),
                     ],
                   ),
                 );

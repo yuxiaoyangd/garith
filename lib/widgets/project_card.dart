@@ -82,21 +82,6 @@ class ProjectCard extends StatelessWidget {
                 children: [
                   Row(
                     children: [
-                      Icon(Icons.person_outline, 
-                        size: 16, 
-                        color: Theme.of(context).textTheme.bodySmall?.color
-                      ),
-                      const SizedBox(width: 4),
-                      Text(
-                        project.ownerNickname.isNotEmpty 
-                            ? project.ownerNickname 
-                            : 'Unknown',
-                        style: Theme.of(context).textTheme.bodySmall,
-                      ),
-                    ],
-                  ),
-                  Row(
-                    children: [
                       if ((project.intentsCount ?? 0) > 0) ...[
                         Icon(Icons.handshake_outlined, 
                           size: 16, 
@@ -111,6 +96,21 @@ class ProjectCard extends StatelessWidget {
                           ),
                         ),
                       ],
+                    ],
+                  ),
+                  Row(
+                    children: [
+                      Icon(Icons.person_outline, 
+                        size: 16, 
+                        color: Theme.of(context).textTheme.bodySmall?.color
+                      ),
+                      const SizedBox(width: 4),
+                      Text(
+                        project.ownerNickname.isNotEmpty 
+                            ? project.ownerNickname 
+                            : 'Unknown',
+                        style: Theme.of(context).textTheme.bodySmall,
+                      ),
                     ],
                   ),
                 ],

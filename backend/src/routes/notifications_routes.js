@@ -32,13 +32,25 @@ async function routes(fastify, options) {
                     id: { type: 'integer' }
                 },
                 required: ['id']
+            },
+            body: {
+                type: 'object',
+                properties: {},
+                additionalProperties: false
             }
         }
     }, markAsRead);
     
     // 标记所有通知为已读
     fastify.patch('/read-all', {
-        preHandler: authenticateToken
+        preHandler: authenticateToken,
+        schema: {
+            body: {
+                type: 'object',
+                properties: {},
+                additionalProperties: false
+            }
+        }
     }, markAllAsRead);
 }
 

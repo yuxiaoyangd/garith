@@ -30,6 +30,7 @@ class _ModernHomeScreenState extends State<ModernHomeScreen> with SingleTickerPr
   
   List<Project> _projects = [];
   bool _loading = true;
+  int _unreadNotificationCount = 0;
 
   @override
   void initState() {
@@ -50,6 +51,7 @@ class _ModernHomeScreenState extends State<ModernHomeScreen> with SingleTickerPr
       }
     });
     _loadProjects();
+    _loadUnreadNotificationCount();
   }
 
   @override
@@ -125,6 +127,21 @@ class _ModernHomeScreenState extends State<ModernHomeScreen> with SingleTickerPr
     }
   }
 
+  Future<void> _loadUnreadNotificationCount() async {
+    try {
+      final authService = Provider.of<AuthService>(context, listen: false);
+      final result = await authService.apiService.getUnreadNotificationCount();
+      
+      if (mounted) {
+        setState(() {
+          _unreadNotificationCount = result['count'] ?? 0;
+        });
+      }
+    } catch (e) {
+      // 静默处理错误，不影响主功能
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -134,15 +151,7 @@ class _ModernHomeScreenState extends State<ModernHomeScreen> with SingleTickerPr
           return [
             // 1. 顶部导航栏 (Logo + Tab)
             SliverAppBar(
-              title: const Text(
-                '亿合 APP',
-                style: TextStyle(
-                  color: AppTheme.textPrimary,
-                  fontWeight: FontWeight.w400,
-                  fontSize: 20,
-                  letterSpacing: -0.5,
-                ),
-              ),
+              title: null, // 移除默认标题
               centerTitle: false,
               backgroundColor: AppTheme.surface,
               elevation: 0,
@@ -162,13 +171,58 @@ class _ModernHomeScreenState extends State<ModernHomeScreen> with SingleTickerPr
                 ],
               ),
               actions: [
+                // 自定义标题，放在actions中确保和图标有相同的动画效果
+                Padding(
+                  padding: const EdgeInsets.only(left: 16, right: 16),
+                  child: Center(
+                    child: Text(
+                      '亿合 APP',
+                      style: const TextStyle(
+                        color: AppTheme.textPrimary,
+                        fontWeight: FontWeight.w400,
+                        fontSize: 20,
+                        letterSpacing: -0.5,
+                      ),
+                    ),
+                  ),
+                ),
+                const Spacer(),
                 IconButton(
                   icon: const Icon(Icons.search, color: AppTheme.textPrimary),
                   onPressed: () => _showSearchDialog(),
                 ),
-                IconButton(
-                  icon: const Icon(Icons.notifications_none, color: AppTheme.textPrimary),
-                  onPressed: () => _showNotifications(),
+                Stack(
+                  children: [
+                    IconButton(
+                      icon: const Icon(Icons.notifications_none, color: AppTheme.textPrimary),
+                      onPressed: () => _showNotifications(),
+                    ),
+                    if (_unreadNotificationCount > 0)
+                      Positioned(
+                        right: 8,
+                        top: 8,
+                        child: Container(
+                          padding: const EdgeInsets.all(2),
+                          decoration: BoxDecoration(
+                            color: Colors.red,
+                            borderRadius: BorderRadius.circular(10),
+                          ),
+                          constraints: const BoxConstraints(
+                            minWidth: 16,
+                            minHeight: 16,
+                          ),
+                          child: Text(
+                            _unreadNotificationCount > 99 ? '99+' : _unreadNotificationCount.toString(),
+                            style: const TextStyle(
+                              color: Colors.white,
+                              fontSize: 10,
+                              fontWeight: FontWeight.bold,
+                            ),
+                            textAlign: TextAlign.center,
+                          ),
+                        ),
+                      ),
+                  ],
                 ),
               ],
             ),
@@ -383,7 +437,10 @@ class _ModernHomeScreenState extends State<ModernHomeScreen> with SingleTickerPr
     Navigator.push(
       context,
       MaterialPageRoute(builder: (_) => const NotificationsScreen()),
-    );
+    ).then((_) {
+      // 返回时刷新未读通知数量
+      _loadUnreadNotificationCount();
+    });
   }
 }
 

@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../services/auth_service.dart';
 import '../theme.dart';
+import '../screens/my_intents_screen.dart';
 
 class NotificationsScreen extends StatefulWidget {
   const NotificationsScreen({super.key});
@@ -121,11 +122,7 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
                       final isRead = notification['is_read'] == 1;
                       
                       return GestureDetector(
-                        onTap: () {
-                          if (!isRead) {
-                            _markAsRead(notification['id']);
-                          }
-                        },
+                        onTap: () => _handleNotificationTap(notification),
                         child: Container(
                           padding: const EdgeInsets.all(16),
                           decoration: BoxDecoration(
@@ -189,6 +186,29 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
                   ),
                 ),
     );
+  }
+
+  Future<void> _handleNotificationTap(Map<String, dynamic> notification) async {
+    final isRead = notification['is_read'] == 1;
+    
+    // 如果未读，先标记为已读
+    if (!isRead) {
+      await _markAsRead(notification['id']);
+    }
+    
+    // 根据通知类型跳转到相应页面
+    if (notification['type'] == 'intent_received' && notification['project_id'] != null) {
+      // 跳转到项目的合作意向页面
+      Navigator.push(
+        context,
+        MaterialPageRoute(
+          builder: (context) => MyIntentsScreen(
+            projectId: notification['project_id'],
+            isProjectOwnerView: true, // 作为项目所有者查看收到的意向
+          ),
+        ),
+      );
+    }
   }
 
   String _formatTime(String? timeStr) {

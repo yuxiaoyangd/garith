@@ -13,6 +13,7 @@ class Intent {
   final String? userNickname;
   final String? userEmail;
   final String? projectOwnerNickname;
+  final int? projectOwnerId;
 
   Intent({
     required this.id,
@@ -29,6 +30,7 @@ class Intent {
     this.userNickname,
     this.userEmail,
     this.projectOwnerNickname,
+    this.projectOwnerId,
   });
 
   factory Intent.fromJson(Map<String, dynamic> json) {
@@ -44,9 +46,10 @@ class Intent {
       projectTitle: json['project_title'],
       projectField: json['project_field'],
       projectStage: json['project_stage'],
-      userNickname: json['user_nickname'],
-      userEmail: json['user_email'],
+      userNickname: json['nickname'] ?? json['user_nickname'],
+      userEmail: json['email'] ?? json['user_email'],
       projectOwnerNickname: json['project_owner_nickname'],
+      projectOwnerId: json['project_owner_id'],
     );
   }
 }
