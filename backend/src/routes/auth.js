@@ -10,11 +10,12 @@ const createTransporter = () => {
         // 开发环境且未配置邮件服务时返回null
         return null;
     }
+    const port = Number(process.env.SMTP_PORT || 587);
     
     return nodemailer.createTransport({
         host: process.env.SMTP_HOST || 'smtp.resend.com',
-        port: process.env.SMTP_PORT || 587,
-        secure: false,
+        port,
+        secure: port === 465,
         auth: {
             user: process.env.SMTP_USER,
             pass: process.env.SMTP_PASS
@@ -35,13 +36,13 @@ async function sendVerificationCode(request, reply, fastify) {
     console.log('Current verification codes:', Array.from(verificationCodes.keys()));
     
     if (!email) {
-        return reply.code(400).send({ error: 'Email is required' });
+        return reply.code(400).send({ error: '请输入邮箱地址' });
     }
 
     // 检查发送频率限制
     const lastSent = verificationCodes.get(email)?.timestamp;
     if (lastSent && Date.now() - lastSent < 60000) {
-        return reply.code(400).send({ error: 'Please wait 60 seconds before requesting another code' });
+        return reply.code(400).send({ error: '请等待60秒后再次请求验证码' });
     }
 
     const code = generateCode();
@@ -106,7 +107,7 @@ async function sendVerificationCode(request, reply, fastify) {
             console.log(`有效期: 5分钟`);
             console.log(`============================\n`);
         }
-        return reply.code(500).send({ error: 'Failed to send verification code' });
+        return reply.code(500).send({ error: '发送验证码失败' });
     }
 }
 
@@ -118,29 +119,30 @@ async function loginWithCode(request, reply, fastify) {
     console.log('Stored verification codes:', Array.from(verificationCodes.keys()));
     
     if (!email || !code) {
-        return reply.code(400).send({ error: 'Email and verification code are required' });
+        return reply.code(400).send({ error: '请输入邮箱和验证码' });
     }
 
-    // 临时万能验证码 888888
-    if (code !== '888888') {
+    // 临时万能验证码 888888（仅开发环境）
+    const isDevMagicCode = process.env.NODE_ENV === 'development' && code === '888888';
+    if (!isDevMagicCode) {
         const storedCode = verificationCodes.get(email);
         console.log('Stored verification code:', storedCode);
         
         if (!storedCode || storedCode.code !== code) {
             console.log('Verification code mismatch or not found');
-            return reply.code(401).send({ error: 'Verification code not found or expired' });
+            return reply.code(401).send({ error: '验证码不存在或已过期' });
         }
         
-        if (Date.now() > storedCode.expiresAt) {
+        if (Date.now() > storedCode.expires) {
             console.log('Verification code expired');
             verificationCodes.delete(email);
-            return reply.code(401).send({ error: 'Verification code expired' });
+            return reply.code(401).send({ error: '验证码已过期' });
         }
         
         // 删除已使用的验证码
         verificationCodes.delete(email);
     } else {
-        console.log('Using magic code 888888');
+        console.log('Using magic code 888888 (development only)');
     }
 
     // 查找或创建用户

@@ -94,31 +94,15 @@ class _LoginScreenState extends State<LoginScreen> {
             mainAxisAlignment: MainAxisAlignment.center,
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
-              // Logo Area
-              Container(
-                height: 80,
-                width: 80,
-                alignment: Alignment.center,
-                decoration: const BoxDecoration(
-                  color: AppTheme.primary,
-                  shape: BoxShape.circle,
-                ),
-                child: const Icon(
-                  Icons.rocket_launch_rounded,
-                  size: 40,
-                  color: Colors.white,
-                ),
-              ),
-
               const SizedBox(height: 24),
               Text(
-                'Garith',
+                '亿合',
                 textAlign: TextAlign.center,
                 style: Theme.of(context).textTheme.displayLarge,
               ),
               const SizedBox(height: 8),
               Text(
-                'Connect real needs with builders.',
+                '连接 · 真实 · 共赢',
                 textAlign: TextAlign.center,
                 style: Theme.of(context).textTheme.bodyMedium,
               ),
@@ -136,9 +120,9 @@ class _LoginScreenState extends State<LoginScreen> {
                         keyboardType: TextInputType.emailAddress,
                         style: Theme.of(context).textTheme.bodyLarge,
                         decoration: const InputDecoration(
-                          labelText: 'Email address',
+                          labelText: '邮箱地址',
                           prefixIcon: Icon(Icons.email_outlined),
-                          hintText: 'yourname@example.com',
+                          hintText: '请输入邮箱地址',
                         ),
                         enabled: !_loading,
                       ),
@@ -152,9 +136,9 @@ class _LoginScreenState extends State<LoginScreen> {
                               keyboardType: TextInputType.number,
                               style: Theme.of(context).textTheme.bodyLarge,
                               decoration: const InputDecoration(
-                                labelText: 'Verification code',
+                                labelText: '验证码',
                                 prefixIcon: Icon(Icons.lock_outline),
-                                hintText: '6-digit code',
+                                hintText: '6位数字验证码',
                               ),
                               enabled: !_loading,
                             ),
@@ -167,7 +151,7 @@ class _LoginScreenState extends State<LoginScreen> {
                               style: OutlinedButton.styleFrom(
                                 padding: const EdgeInsets.symmetric(horizontal: 16),
                               ),
-                              child: Text(_codeSent ? 'Resend' : 'Get Code'),
+                              child: Text(_codeSent ? '重新发送' : '获取验证码'),
                             ),
                           ),
                         ],
@@ -184,7 +168,7 @@ class _LoginScreenState extends State<LoginScreen> {
                                   color: Colors.white,
                                 ),
                               )
-                            : const Text('Sign in'),
+                            : const Text('登录'),
                       ),
                     ],
                   ),
@@ -193,7 +177,7 @@ class _LoginScreenState extends State<LoginScreen> {
 
               const SizedBox(height: 24),
               Text(
-                'No sign-up needed. First sign-in creates your account.',
+                '无需注册，首次登录自动创建账户。',
                 textAlign: TextAlign.center,
                 style: Theme.of(context).textTheme.bodySmall?.copyWith(
                   color: AppTheme.textSecondary.withValues(alpha: 0.7),

@@ -20,7 +20,7 @@ class ApiService {
   // API基础URL配置 - 安卓真机使用局域网IP
   static const String baseUrl = String.fromEnvironment(
     'API_BASE_URL',
-    defaultValue: 'http://192.168.1.3:3000', // 安卓真机连接后端
+    defaultValue: 'https://api.garith.jianjiemaa.com', // 生产API域名
   );
   String? _token;
 

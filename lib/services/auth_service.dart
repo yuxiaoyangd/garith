@@ -7,9 +7,11 @@ import '../models/project.dart';
 class AuthService extends ChangeNotifier {
   final ApiService _apiService = ApiService();
   User? _currentUser;
+  bool _initialized = false;
 
   User? get currentUser => _currentUser;
   bool get isLoggedIn => _currentUser != null;
+  bool get isInitialized => _initialized;
 
   Future<void> init() async {
     debugPrint('AuthService: init started');
@@ -20,7 +22,6 @@ class AuthService extends ChangeNotifier {
         debugPrint('AuthService: calling getProfile...');
         _currentUser = await _apiService.getProfile();
         debugPrint('AuthService: getProfile success, user = ${_currentUser?.email}');
-        notifyListeners();
       } catch (e) {
         debugPrint('AuthService: getProfile failed: $e');
         await logout();
@@ -28,6 +29,8 @@ class AuthService extends ChangeNotifier {
     } else {
       debugPrint('AuthService: no token found, staying logged out');
     }
+    _initialized = true;
+    notifyListeners();
   }
 
   Future<void> _loadToken() async {
@@ -55,7 +58,16 @@ class AuthService extends ChangeNotifier {
     debugPrint('AuthService: loginWithCode success, token = ${result['token'].substring(0, 10)}...');
     
     await _saveToken(result['token']);
-    _currentUser = User.fromJson(result['user']);
+    
+    // 重新获取完整的用户信息（包含头像）
+    try {
+      _currentUser = await _apiService.getProfile();
+      debugPrint('AuthService: getProfile success, user = ${_currentUser?.email}');
+    } catch (e) {
+      debugPrint('AuthService: getProfile failed, using login user data: $e');
+      _currentUser = User.fromJson(result['user']);
+    }
+    
     debugPrint('AuthService: currentUser set = ${_currentUser?.email}');
     notifyListeners();
     

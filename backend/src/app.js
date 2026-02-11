@@ -68,7 +68,7 @@ fastify.setErrorHandler((error, request, reply) => {
 // 启动服务器
 const start = async () => {
     try {
-        const port = process.env.PORT || 3000;
+        const port = process.env.PORT || 3003;
         await fastify.listen({ port, host: '0.0.0.0' });
         console.log(`Server running on port ${port}`);
     } catch (err) {
