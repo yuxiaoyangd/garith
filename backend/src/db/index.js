@@ -3,7 +3,7 @@ const path = require('path');
 const fs = require('fs');
 
 // 确保数据库目录存在
-const dbDir = path.join(__dirname, '../../../data');
+const dbDir = path.join(__dirname, '../../data');
 if (!fs.existsSync(dbDir)) {
     fs.mkdirSync(dbDir, { recursive: true });
 }
