@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../services/auth_service.dart';
 import '../theme.dart';
+import '../utils/date_time_utils.dart';
 
 class IntentDetailScreen extends StatefulWidget {
   final Map<String, dynamic> intent;
@@ -33,189 +34,71 @@ class _IntentDetailScreenState extends State<IntentDetailScreen> {
         elevation: 0,
       ),
       body: SingleChildScrollView(
-        padding: const EdgeInsets.all(16),
+        padding: const EdgeInsets.all(20),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            // 项目信息卡片
-            Card(
-              child: Padding(
-                padding: const EdgeInsets.all(16),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Row(
-                      children: [
-                        Icon(Icons.work_outline, color: AppTheme.primary, size: 20),
-                        const SizedBox(width: 8),
-                        const Text(
-                          '项目',
-                          style: TextStyle(
-                            fontSize: 14,
-                            fontWeight: FontWeight.w500,
-                            color: AppTheme.textSecondary,
-                          ),
-                        ),
-                      ],
-                    ),
-                    const SizedBox(height: 8),
-                    Text(
-                      widget.projectTitle,
-                      style: const TextStyle(
-                        fontSize: 18,
-                        fontWeight: FontWeight.bold,
-                        color: AppTheme.textPrimary,
-                      ),
-                    ),
-                  ],
-                ),
+            // 项目标题
+            Text(
+              widget.projectTitle,
+              style: const TextStyle(
+                fontSize: 22,
+                fontWeight: FontWeight.bold,
+                color: AppTheme.textPrimary,
+              ),
+            ),
+            const SizedBox(height: 8),
+            Text(
+              '提交于 ${_formatDate(intent['created_at'])}',
+              style: const TextStyle(
+                fontSize: 14,
+                color: AppTheme.textSecondary,
               ),
             ),
             
-            const SizedBox(height: 16),
-            
-            // 发送者信息卡片
-            Card(
-              child: Padding(
-                padding: const EdgeInsets.all(16),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Row(
-                      children: [
-                        Icon(Icons.person_outline, color: AppTheme.primary, size: 20),
-                        const SizedBox(width: 8),
-                        const Text(
-                          '发送者',
-                          style: TextStyle(
-                            fontSize: 14,
-                            fontWeight: FontWeight.w500,
-                            color: AppTheme.textSecondary,
-                          ),
-                        ),
-                      ],
-                    ),
-                    const SizedBox(height: 8),
-                    Text(
-                      intent['nickname'] ?? '未知用户',
-                      style: const TextStyle(
-                        fontSize: 16,
-                        fontWeight: FontWeight.w600,
-                        color: AppTheme.textPrimary,
-                      ),
-                    ),
-                    const SizedBox(height: 4),
-                    Text(
-                      intent['email'] ?? '',
-                      style: const TextStyle(
-                        fontSize: 14,
-                        color: AppTheme.textSecondary,
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-            ),
-            
-            const SizedBox(height: 16),
+            const SizedBox(height: 32),
             
             // 合作提供内容
-            _buildContentCard(
+            _buildSection(
               title: '我能提供',
-              icon: Icons.handshake_outlined,
               content: intent['offer'] ?? '',
-            ),
-            
-            const SizedBox(height: 16),
-            
-            // 期望获得内容
-            _buildContentCard(
-              title: '我期望',
-              icon: Icons.star_outline,
-              content: intent['expect'] ?? '',
-            ),
-            
-            const SizedBox(height: 16),
-            
-            // 联系方式
-            _buildContentCard(
-              title: '联系方式',
-              icon: Icons.contact_mail_outlined,
-              content: intent['contact'] ?? '',
-            ),
-            
-            const SizedBox(height: 16),
-            
-            // 状态和时间信息
-            Card(
-              child: Padding(
-                padding: const EdgeInsets.all(16),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Row(
-                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                      children: [
-                        Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            const Text(
-                              '状态',
-                              style: TextStyle(
-                                fontSize: 14,
-                                color: AppTheme.textSecondary,
-                              ),
-                            ),
-                            const SizedBox(height: 4),
-                            _buildStatusChip(intent['status'] ?? 'submitted'),
-                          ],
-                        ),
-                        Column(
-                          crossAxisAlignment: CrossAxisAlignment.end,
-                          children: [
-                            const Text(
-                              '提交时间',
-                              style: TextStyle(
-                                fontSize: 14,
-                                color: AppTheme.textSecondary,
-                              ),
-                            ),
-                            const SizedBox(height: 4),
-                            Text(
-                              _formatDate(intent['created_at']),
-                              style: const TextStyle(
-                                fontSize: 14,
-                                color: AppTheme.textPrimary,
-                              ),
-                            ),
-                          ],
-                        ),
-                      ],
-                    ),
-                  ],
-                ),
-              ),
             ),
             
             const SizedBox(height: 24),
             
-            // 操作按钮（仅项目所有者可见）
+            // 期望获得内容
+            _buildSection(
+              title: '我期望',
+              content: intent['expect'] ?? '',
+            ),
+            
+            const SizedBox(height: 24),
+            
+            // 联系方式
+            _buildSection(
+              title: '联系方式',
+              content: intent['contact'] ?? '',
+            ),
+            
+            const SizedBox(height: 40),
+            
+            // 操作按钮（仅项目所有者可见且状态为 submitted）
             if (isOwner && intent['status'] == 'submitted') ...[
               Row(
                 children: [
                   Expanded(
-                    child: ElevatedButton.icon(
+                    child: OutlinedButton.icon(
                       onPressed: _updating ? null : () => _updateStatus('closed'),
                       icon: const Icon(Icons.close),
                       label: const Text('拒绝'),
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: AppTheme.error,
-                        foregroundColor: Colors.white,
+                      style: OutlinedButton.styleFrom(
+                        foregroundColor: AppTheme.error,
                         padding: const EdgeInsets.symmetric(vertical: 12),
+                        side: const BorderSide(color: AppTheme.error),
                       ),
                     ),
                   ),
-                  const SizedBox(width: 12),
+                  const SizedBox(width: 16),
                   Expanded(
                     child: ElevatedButton.icon(
                       onPressed: _updating ? null : () => _updateStatus('viewed'),
@@ -225,6 +108,7 @@ class _IntentDetailScreenState extends State<IntentDetailScreen> {
                         backgroundColor: AppTheme.primary,
                         foregroundColor: Colors.white,
                         padding: const EdgeInsets.symmetric(vertical: 12),
+                        elevation: 0,
                       ),
                     ),
                   ),
@@ -244,91 +128,40 @@ class _IntentDetailScreenState extends State<IntentDetailScreen> {
            widget.intent['project_owner_id'] == authService.currentUser!.id;
   }
 
-  Widget _buildContentCard({
+  Widget _buildSection({
     required String title,
-    required IconData icon,
     required String content,
   }) {
-    return Card(
-      child: Padding(
-        padding: const EdgeInsets.all(16),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Row(
-              children: [
-                Icon(icon, color: AppTheme.primary, size: 20),
-                const SizedBox(width: 8),
-                Text(
-                  title,
-                  style: const TextStyle(
-                    fontSize: 14,
-                    fontWeight: FontWeight.w500,
-                    color: AppTheme.textSecondary,
-                  ),
-                ),
-              ],
-            ),
-            const SizedBox(height: 8),
-            Container(
-              width: double.infinity,
-              padding: const EdgeInsets.all(12),
-              decoration: BoxDecoration(
-                color: AppTheme.background,
-                borderRadius: BorderRadius.circular(8),
-                border: Border.all(color: AppTheme.divider),
-              ),
-              child: Text(
-                content.isEmpty ? '未填写' : content,
-                style: TextStyle(
-                  fontSize: 14,
-                  color: content.isEmpty ? AppTheme.textSecondary : AppTheme.textPrimary,
-                ),
-              ),
-            ),
-          ],
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(
+          title,
+          style: const TextStyle(
+            fontSize: 14,
+            fontWeight: FontWeight.w600,
+            color: AppTheme.textSecondary,
+          ),
         ),
-      ),
-    );
-  }
-
-  Widget _buildStatusChip(String status) {
-    Color color;
-    String text;
-    
-    switch (status) {
-      case 'submitted':
-        color = AppTheme.accent;
-        text = '待处理';
-        break;
-      case 'viewed':
-        color = AppTheme.primary;
-        text = '已接受';
-        break;
-      case 'closed':
-        color = AppTheme.error;
-        text = '已拒绝';
-        break;
-      default:
-        color = AppTheme.textSecondary;
-        text = status;
-    }
-    
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-      decoration: BoxDecoration(
-        color: color.withOpacity(0.1),
-        borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: color.withOpacity(0.3)),
-      ),
-      child: Text(
-        text,
-        style: TextStyle(
-          color: color,
-          fontSize: 12,
-          fontWeight: FontWeight.bold,
+        const SizedBox(height: 8),
+        Container(
+          width: double.infinity,
+          padding: const EdgeInsets.all(16),
+          decoration: BoxDecoration(
+            color: Colors.white,
+            borderRadius: BorderRadius.circular(12),
+            border: Border.all(color: AppTheme.divider.withValues(alpha: 0.5)),
+          ),
+          child: SelectableText(
+            content.isEmpty ? '未填写' : content,
+            style: TextStyle(
+              fontSize: 15,
+              height: 1.5,
+              color: content.isEmpty ? AppTheme.textSecondary : AppTheme.textPrimary,
+            ),
+          ),
         ),
-      ),
+      ],
     );
   }
 
@@ -340,7 +173,7 @@ class _IntentDetailScreenState extends State<IntentDetailScreen> {
       if (dateInput is DateTime) {
         date = dateInput;
       } else if (dateInput is String) {
-        date = DateTime.parse(dateInput);
+        date = parseServerDateTime(dateInput);
       } else {
         return '未知';
       }

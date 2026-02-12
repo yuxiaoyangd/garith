@@ -343,6 +343,30 @@ class ApiService {
     _throwFor(response);
   }
 
+  Future<List<Intent>> getReceivedIntents({
+    String? status,
+    int page = 1,
+    int limit = 20,
+  }) async {
+    final queryParams = <String, String>{
+      'page': page.toString(),
+      'limit': limit.toString(),
+    };
+
+    if (status != null) queryParams['status'] = status;
+
+    final uri = Uri.parse(
+      '$baseUrl/me/received-intents',
+    ).replace(queryParameters: queryParams);
+    final response = await http.get(uri, headers: _headers);
+
+    if (response.statusCode == 200) {
+      final List<dynamic> data = jsonDecode(response.body);
+      return data.map((json) => Intent.fromJson(json)).toList();
+    }
+    _throwFor(response);
+  }
+
   Future<User> getProfile() async {
     final response = await http.get(
       Uri.parse('$baseUrl/me/profile'),
@@ -383,7 +407,9 @@ class ApiService {
       'unread_only': unreadOnly.toString(),
     };
 
-    final uri = Uri.parse('$baseUrl/notifications').replace(queryParameters: queryParams);
+    final uri = Uri.parse(
+      '$baseUrl/notifications',
+    ).replace(queryParameters: queryParams);
     final response = await http.get(uri, headers: _headers);
 
     if (response.statusCode == 200) {
@@ -408,10 +434,7 @@ class ApiService {
   Future<void> markNotificationAsRead(int notificationId) async {
     final response = await http.patch(
       Uri.parse('$baseUrl/notifications/$notificationId/read'),
-      headers: {
-        ..._headers,
-        'Content-Type': 'application/json',
-      },
+      headers: {..._headers, 'Content-Type': 'application/json'},
       body: '{}',
     );
 
@@ -423,10 +446,7 @@ class ApiService {
   Future<void> markAllNotificationsAsRead() async {
     final response = await http.patch(
       Uri.parse('$baseUrl/notifications/read-all'),
-      headers: {
-        ..._headers,
-        'Content-Type': 'application/json',
-      },
+      headers: {..._headers, 'Content-Type': 'application/json'},
       body: '{}',
     );
 
@@ -483,17 +503,22 @@ class ApiService {
 
   // 上传头像
   Future<String> uploadAvatar(String imagePath) async {
-    var request = http.MultipartRequest('POST', Uri.parse('$baseUrl/users/avatar'));
-    
+    var request = http.MultipartRequest(
+      'POST',
+      Uri.parse('$baseUrl/users/avatar'),
+    );
+
     // 添加认证头
     if (_token != null) {
       request.headers['Authorization'] = 'Bearer $_token';
     }
-    
+
     // 添加文件（显式设置contentType，避免部分Android机型上传为application/octet-stream）
     final mimeType = lookupMimeType(imagePath) ?? 'image/jpeg';
     final parts = mimeType.split('/');
-    final mediaType = parts.length == 2 ? MediaType(parts[0], parts[1]) : MediaType('image', 'jpeg');
+    final mediaType = parts.length == 2
+        ? MediaType(parts[0], parts[1])
+        : MediaType('image', 'jpeg');
     request.files.add(
       await http.MultipartFile.fromPath(
         'avatar',
@@ -501,34 +526,42 @@ class ApiService {
         contentType: mediaType,
       ),
     );
-    
+
     var response = await request.send();
     var responseBody = await response.stream.bytesToString();
-    
+
     if (response.statusCode == 200) {
       final data = jsonDecode(responseBody);
       return data['avatar_url'];
     } else {
       final error = jsonDecode(responseBody);
-      throw ApiException(response.statusCode, error['error'] ?? 'Upload failed');
+      throw ApiException(
+        response.statusCode,
+        error['error'] ?? 'Upload failed',
+      );
     }
   }
 
   // 上传项目图片
   Future<List<String>> uploadProjectImages(List<String> imagePaths) async {
-    var request = http.MultipartRequest('POST', Uri.parse('$baseUrl/upload/project-images'));
-    
+    var request = http.MultipartRequest(
+      'POST',
+      Uri.parse('$baseUrl/upload/project-images'),
+    );
+
     // 添加认证头
     if (_token != null) {
       request.headers['Authorization'] = 'Bearer $_token';
     }
-    
+
     // 添加文件（显式设置contentType）
     for (int i = 0; i < imagePaths.length; i++) {
       final path = imagePaths[i];
       final mimeType = lookupMimeType(path) ?? 'image/jpeg';
       final parts = mimeType.split('/');
-      final mediaType = parts.length == 2 ? MediaType(parts[0], parts[1]) : MediaType('image', 'jpeg');
+      final mediaType = parts.length == 2
+          ? MediaType(parts[0], parts[1])
+          : MediaType('image', 'jpeg');
       request.files.add(
         await http.MultipartFile.fromPath(
           'images',
@@ -537,16 +570,19 @@ class ApiService {
         ),
       );
     }
-    
+
     var response = await request.send();
     var responseBody = await response.stream.bytesToString();
-    
+
     if (response.statusCode == 200) {
       final data = jsonDecode(responseBody);
       return List<String>.from(data['images']);
     } else {
       final error = jsonDecode(responseBody);
-      throw ApiException(response.statusCode, error['error'] ?? 'Upload failed');
+      throw ApiException(
+        response.statusCode,
+        error['error'] ?? 'Upload failed',
+      );
     }
   }
 }

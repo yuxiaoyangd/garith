@@ -130,3 +130,4 @@ jspm_packages/
 .vscode-test
 backend/uploads/
 data/
+logcat_output.txt

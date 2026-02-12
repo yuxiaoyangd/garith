@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/foundation.dart';
 import 'package:provider/provider.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:url_launcher/url_launcher.dart';
@@ -9,7 +10,9 @@ import 'my_projects_screen.dart';
 import 'my_intents_screen.dart';
 
 class ModernProfileScreen extends StatefulWidget {
-  const ModernProfileScreen({super.key});
+  final ValueListenable<int>? refreshListenable;
+
+  const ModernProfileScreen({super.key, this.refreshListenable});
 
   @override
   State<ModernProfileScreen> createState() => _ModernProfileScreenState();
@@ -19,6 +22,40 @@ class _ModernProfileScreenState extends State<ModernProfileScreen> {
   bool _uploadingAvatar = false;
   String? _localAvatarUrl;
   int _avatarCacheBuster = 0;
+  bool _editingNickname = false;
+  final _nicknameController = TextEditingController();
+  Future<Map<String, dynamic>>? _statsFuture;
+  VoidCallback? _refreshListener;
+
+  Future<Map<String, dynamic>> _fetchStats() {
+    return Provider.of<AuthService>(context, listen: false).apiService.getUserStats();
+  }
+
+  void _refreshStats() {
+    if (!mounted) return;
+    setState(() {
+      _statsFuture = _fetchStats();
+    });
+  }
+
+  @override
+  void initState() {
+    super.initState();
+    _statsFuture = _fetchStats();
+    if (widget.refreshListenable != null) {
+      _refreshListener = () => _refreshStats();
+      widget.refreshListenable!.addListener(_refreshListener!);
+    }
+  }
+
+  @override
+  void dispose() {
+    if (_refreshListener != null && widget.refreshListenable != null) {
+      widget.refreshListenable!.removeListener(_refreshListener!);
+    }
+    _nicknameController.dispose();
+    super.dispose();
+  }
 
   Future<void> _pickAndUploadAvatar() async {
     final ImagePicker picker = ImagePicker();
@@ -86,6 +123,34 @@ class _ModernProfileScreenState extends State<ModernProfileScreen> {
     return '$resolved$separator$_avatarCacheBuster';
   }
 
+  Future<void> _updateNickname(String newNickname) async {
+    if (newNickname.trim().isEmpty) return;
+    
+    try {
+      final authService = Provider.of<AuthService>(context, listen: false);
+      await authService.apiService.updateUserProfileNew(nickname: newNickname.trim());
+      await authService.refreshUser();
+      
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('昵称更新成功'),
+            backgroundColor: AppTheme.accent,
+          ),
+        );
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('昵称更新失败: ${e.toString()}'),
+            backgroundColor: AppTheme.error,
+          ),
+        );
+      }
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     final authService = Provider.of<AuthService>(context);
@@ -109,27 +174,29 @@ class _ModernProfileScreenState extends State<ModernProfileScreen> {
         child: Column(
           children: [
             const SizedBox(height: 20),
-            // 1. 头像与基本信息
-            Center(
-              child: Column(
+            // 1. 头像与基本信息 - 左右布局
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 20),
+              child: Row(
                 children: [
+                  // 左侧头像
                   GestureDetector(
                     onTap: _uploadingAvatar ? null : _pickAndUploadAvatar,
                     child: Stack(
                       children: [
                         Container(
-                          width: 100,
-                          height: 100,
+                          width: 80,
+                          height: 80,
                           decoration: BoxDecoration(
                             shape: BoxShape.circle,
-                            border: Border.all(color: Colors.grey.shade200, width: 4),
+                            border: Border.all(color: Colors.grey.shade200, width: 3),
                           ),
                           child: ClipOval(
                             child: displayAvatarUrl != null
                                 ? Image.network(
                                     displayAvatarUrl,
-                                    width: 100,
-                                    height: 100,
+                                    width: 80,
+                                    height: 80,
                                     fit: BoxFit.cover,
                                     errorBuilder: (context, error, stackTrace) {
                                       return Container(
@@ -137,7 +204,7 @@ class _ModernProfileScreenState extends State<ModernProfileScreen> {
                                         child: const Center(
                                           child: Icon(
                                             Icons.person,
-                                            size: 48,
+                                            size: 40,
                                             color: AppTheme.textSecondary,
                                           ),
                                         ),
@@ -149,7 +216,7 @@ class _ModernProfileScreenState extends State<ModernProfileScreen> {
                                     child: const Center(
                                       child: Icon(
                                         Icons.person,
-                                        size: 48,
+                                        size: 40,
                                         color: AppTheme.textSecondary,
                                       ),
                                     ),
@@ -158,8 +225,8 @@ class _ModernProfileScreenState extends State<ModernProfileScreen> {
                         ),
                         if (_uploadingAvatar)
                           Container(
-                            width: 100,
-                            height: 100,
+                            width: 80,
+                            height: 80,
                             decoration: BoxDecoration(
                               shape: BoxShape.circle,
                               color: Colors.black.withOpacity(0.5),
@@ -175,7 +242,7 @@ class _ModernProfileScreenState extends State<ModernProfileScreen> {
                             bottom: 0,
                             right: 0,
                             child: Container(
-                              padding: const EdgeInsets.all(4),
+                              padding: const EdgeInsets.all(3),
                               decoration: BoxDecoration(
                                 color: AppTheme.primary,
                                 shape: BoxShape.circle,
@@ -184,28 +251,105 @@ class _ModernProfileScreenState extends State<ModernProfileScreen> {
                               child: const Icon(
                                 Icons.camera_alt,
                                 color: Colors.white,
-                                size: 16,
+                                size: 14,
                               ),
                             ),
                           ),
                       ],
                     ),
                   ),
-                  const SizedBox(height: 16),
-                  Text(
-                    user?.nickname ?? '未登录用户',
-                    style: const TextStyle(
-                      fontSize: 24,
-                      fontWeight: FontWeight.bold,
-                      color: AppTheme.textPrimary,
-                    ),
-                  ),
-                  const SizedBox(height: 8),
-                  Text(
-                    user?.email ?? '',
-                    style: const TextStyle(
-                      fontSize: 14,
-                      color: AppTheme.textSecondary,
+                  const SizedBox(width: 20),
+                  // 右侧用户信息
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        // 昵称 - 可点击编辑
+                        _editingNickname
+                            ? Row(
+                                children: [
+                                  Expanded(
+                                    child: TextField(
+                                      controller: _nicknameController,
+                                      autofocus: true,
+                                      style: const TextStyle(
+                                        fontSize: 20,
+                                        fontWeight: FontWeight.bold,
+                                        color: AppTheme.textPrimary,
+                                      ),
+                                      decoration: const InputDecoration(
+                                        hintText: '输入昵称',
+                                        border: UnderlineInputBorder(),
+                                        contentPadding: EdgeInsets.symmetric(vertical: 4),
+                                      ),
+                                      onSubmitted: (value) {
+                                        if (value.trim().isNotEmpty) {
+                                          _updateNickname(value.trim());
+                                        }
+                                        setState(() {
+                                          _editingNickname = false;
+                                        });
+                                      },
+                                    ),
+                                  ),
+                                  IconButton(
+                                    icon: const Icon(Icons.check, size: 20),
+                                    onPressed: () {
+                                      final value = _nicknameController.text;
+                                      if (value.trim().isNotEmpty) {
+                                        _updateNickname(value.trim());
+                                      }
+                                      setState(() {
+                                        _editingNickname = false;
+                                      });
+                                    },
+                                  ),
+                                  IconButton(
+                                    icon: const Icon(Icons.close, size: 20),
+                                    onPressed: () {
+                                      setState(() {
+                                        _editingNickname = false;
+                                      });
+                                    },
+                                  ),
+                                ],
+                              )
+                            : GestureDetector(
+                                onTap: () {
+                                  setState(() {
+                                    _editingNickname = true;
+                                    _nicknameController.text = user?.nickname ?? '';
+                                  });
+                                },
+                                child: Row(
+                                  children: [
+                                    Text(
+                                      user?.nickname ?? '未登录用户',
+                                      style: const TextStyle(
+                                        fontSize: 20,
+                                        fontWeight: FontWeight.bold,
+                                        color: AppTheme.textPrimary,
+                                      ),
+                                    ),
+                                    const SizedBox(width: 8),
+                                    Icon(
+                                      Icons.edit_outlined,
+                                      size: 16,
+                                      color: AppTheme.textSecondary.withValues(alpha: 0.6),
+                                    ),
+                                  ],
+                                ),
+                              ),
+                        const SizedBox(height: 8),
+                        // 邮箱
+                        Text(
+                          user?.email ?? '',
+                          style: const TextStyle(
+                            fontSize: 14,
+                            color: AppTheme.textSecondary,
+                          ),
+                        ),
+                      ],
                     ),
                   ),
                 ],
@@ -216,7 +360,7 @@ class _ModernProfileScreenState extends State<ModernProfileScreen> {
             
             // 2. 数据概览 (可选，增强社区感)
             FutureBuilder<Map<String, dynamic>>(
-              future: Provider.of<AuthService>(context, listen: false).apiService.getUserStats(),
+              future: _statsFuture,
               builder: (context, snapshot) {
                 final stats = snapshot.data;
                 return Padding(

@@ -258,6 +258,7 @@ class _MyProjectsScreenState extends State<MyProjectsScreen> {
                         MaterialPageRoute(
                           builder: (context) => MyIntentsScreen(
                             projectId: project.id,
+                            projectTitle: project.title,
                             isProjectOwnerView: true,
                           ),
                         ),

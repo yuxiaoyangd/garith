@@ -1,4 +1,5 @@
 import 'dart:convert';
+import '../utils/date_time_utils.dart';
 
 class Project {
   final int id;
@@ -56,8 +57,8 @@ class Project {
       ownerId: json['owner_id'],
       ownerNickname: json['owner_nickname'] ?? '',
       ownerEmail: json['owner_email'] ?? '',
-      createdAt: DateTime.parse(json['created_at']),
-      updatedAt: DateTime.parse(json['updated_at']),
+      createdAt: parseServerDateTime(json['created_at']),
+      updatedAt: parseServerDateTime(json['updated_at']),
       progress: (json['progress'] as List<dynamic>?)
           ?.map((p) => Progress.fromJson(p))
           .toList() ?? [],
@@ -104,7 +105,7 @@ class Progress {
       projectId: json['project_id'],
       content: json['content'],
       summary: json['summary'],
-      createdAt: DateTime.parse(json['created_at']),
+      createdAt: parseServerDateTime(json['created_at']),
     );
   }
 }

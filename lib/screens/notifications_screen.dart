@@ -3,6 +3,7 @@ import 'package:provider/provider.dart';
 import '../services/auth_service.dart';
 import '../theme.dart';
 import '../screens/my_intents_screen.dart';
+import '../utils/date_time_utils.dart';
 
 class NotificationsScreen extends StatefulWidget {
   const NotificationsScreen({super.key});
@@ -204,6 +205,7 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
         MaterialPageRoute(
           builder: (context) => MyIntentsScreen(
             projectId: notification['project_id'],
+            projectTitle: notification['project_title'],
             isProjectOwnerView: true, // 作为项目所有者查看收到的意向
           ),
         ),
@@ -214,7 +216,7 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
   String _formatTime(String? timeStr) {
     if (timeStr == null) return '';
     try {
-      final time = DateTime.parse(timeStr);
+      final time = parseServerDateTime(timeStr);
       final now = DateTime.now();
       final diff = now.difference(time);
       

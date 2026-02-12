@@ -1,3 +1,5 @@
+import '../utils/date_time_utils.dart';
+
 class User {
   final int id;
   final String email;
@@ -24,7 +26,7 @@ class User {
       nickname: json['nickname'],
       skills: json['skills'] != null ? List<String>.from(json['skills']) : [],
       createdAt: json['created_at'] != null
-          ? DateTime.parse(json['created_at'])
+          ? parseServerDateTime(json['created_at'])
           : DateTime.now(),
       avatarUrl: json['avatar_url'],
       bio: json['bio'],

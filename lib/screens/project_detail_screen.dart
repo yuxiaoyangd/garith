@@ -245,29 +245,13 @@ class _ProjectDetailScreenState extends State<ProjectDetailScreen> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Row(
-          children: [
-            _buildStatusTag(_project!.status),
-            const Spacer(),
-            Text(
-              _formatDate(_project!.createdAt),
-              style: TextStyle(
-                color: AppTheme.textSecondary.withValues(alpha: 0.6),
-                fontSize: 13,
-                fontWeight: FontWeight.w400,
-              ),
-            ),
-          ],
-        ),
-        const SizedBox(height: 16),
         Text(
           _project!.title,
           style: const TextStyle(
-            fontSize: 28,
-            fontWeight: FontWeight.w700,
+            fontSize: 18,
+            fontWeight: FontWeight.w600,
             color: AppTheme.textPrimary,
-            height: 1.3,
-            letterSpacing: -0.5,
+            height: 1.4,
           ),
         ),
         const SizedBox(height: 16),
@@ -300,6 +284,15 @@ class _ProjectDetailScreenState extends State<ProjectDetailScreen> {
                 color: AppTheme.textPrimary,
                 fontWeight: FontWeight.w500,
                 fontSize: 15,
+              ),
+            ),
+            const Spacer(),
+            Text(
+              _formatDate(_project!.createdAt),
+              style: TextStyle(
+                color: AppTheme.textSecondary.withValues(alpha: 0.6),
+                fontSize: 13,
+                fontWeight: FontWeight.w400,
               ),
             ),
           ],
@@ -507,34 +500,7 @@ class _ProjectDetailScreenState extends State<ProjectDetailScreen> {
           if (authService.isLoggedIn && 
               _project!.ownerId == authService.currentUser!.id) ...[
             const SizedBox(height: 16),
-            TextButton(
-              onPressed: () {
-                Navigator.push(
-                  context,
-                  MaterialPageRoute(
-                    builder: (context) => AddProgressSimpleScreen(
-                      projectId: _project!.id,
-                    ),
-                  ),
-                ).then((result) {
-                  if (result == true) _loadProject();
-                });
-              },
-              style: TextButton.styleFrom(
-                foregroundColor: AppTheme.accent,
-                padding: const EdgeInsets.symmetric(
-                  horizontal: 20,
-                  vertical: 12,
-                ),
-              ),
-              child: const Text(
-                '新增进度记录',
-                style: TextStyle(
-                  fontSize: 14,
-                  fontWeight: FontWeight.w500,
-                ),
-              ),
-            ),
+            _buildAddProgressButton(),
           ],
         ],
       ),

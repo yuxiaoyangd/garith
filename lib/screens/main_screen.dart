@@ -17,6 +17,7 @@ class MainScreen extends StatefulWidget {
 class _MainScreenState extends State<MainScreen> {
   int _currentIndex = 0;
   final ValueNotifier<int> _homeRefreshNotifier = ValueNotifier<int>(0);
+  final ValueNotifier<int> _profileRefreshNotifier = ValueNotifier<int>(0);
   DateTime? _lastBackPressTime;
 
   late final List<Widget> _pages;
@@ -26,13 +27,14 @@ class _MainScreenState extends State<MainScreen> {
     super.initState();
     _pages = [
       HomePageWrapper(refreshListenable: _homeRefreshNotifier),
-      const ProfilePageWrapper(),
+      ProfilePageWrapper(refreshListenable: _profileRefreshNotifier),
     ];
   }
 
   @override
   void dispose() {
     _homeRefreshNotifier.dispose();
+    _profileRefreshNotifier.dispose();
     super.dispose();
   }
 
@@ -108,6 +110,7 @@ class _MainScreenState extends State<MainScreen> {
           MaterialPageRoute(builder: (context) => const PublishEntryScreen()),
         );
         _homeRefreshNotifier.value += 1;
+        _profileRefreshNotifier.value += 1;
       },
       child: Container(
         width: 42,
@@ -134,7 +137,12 @@ class _MainScreenState extends State<MainScreen> {
     final isActive = _currentIndex == index;
     
     return GestureDetector(
-      onTap: () => setState(() => _currentIndex = index),
+      onTap: () {
+        if (index == 1) {
+          _profileRefreshNotifier.value += 1;
+        }
+        setState(() => _currentIndex = index);
+      },
       child: Container(
         padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
         child: Column(
@@ -175,10 +183,12 @@ class HomePageWrapper extends StatelessWidget {
 }
 
 class ProfilePageWrapper extends StatelessWidget {
-  const ProfilePageWrapper({super.key});
+  final ValueListenable<int>? refreshListenable;
+
+  const ProfilePageWrapper({super.key, this.refreshListenable});
 
   @override
   Widget build(BuildContext context) {
-    return const ModernProfileScreen();
+    return ModernProfileScreen(refreshListenable: refreshListenable);
   }
 }

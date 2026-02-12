@@ -19,6 +19,7 @@ class ModernHomeScreen extends StatefulWidget {
 
 class _ModernHomeScreenState extends State<ModernHomeScreen> with SingleTickerProviderStateMixin {
   late TabController _tabController;
+  late final ScrollController _scrollController;
   late final String _allLabel;
   VoidCallback? _refreshListener;
   
@@ -32,11 +33,29 @@ class _ModernHomeScreenState extends State<ModernHomeScreen> with SingleTickerPr
   bool _loading = true;
   int _unreadNotificationCount = 0;
 
+  double _titleOpacity = 1.0;
+
   @override
   void initState() {
     super.initState();
     _tabController = TabController(length: 2, vsync: this);
+    _scrollController = ScrollController();
     _allLabel = '全部';
+    
+    // 监听滚动位置更新标题透明度
+    _scrollController.addListener(() {
+      final offset = _scrollController.offset;
+      // 当滚动超过20时开始渐隐，滚动超过60时完全透明
+      final newOpacity = offset <= 20 
+          ? 1.0 
+          : offset >= 60 
+              ? 0.0 
+              : 1.0 - (offset - 20) / 40;
+      if (mounted && newOpacity != _titleOpacity) {
+        setState(() => _titleOpacity = newOpacity);
+      }
+    });
+    
     if (widget.refreshListenable != null) {
       _refreshListener = () {
         _loadProjects();
@@ -60,6 +79,7 @@ class _ModernHomeScreenState extends State<ModernHomeScreen> with SingleTickerPr
       widget.refreshListenable!.removeListener(_refreshListener!);
     }
     _tabController.dispose();
+    _scrollController.dispose();
     super.dispose();
   }
 
@@ -147,6 +167,7 @@ class _ModernHomeScreenState extends State<ModernHomeScreen> with SingleTickerPr
     return Scaffold(
       backgroundColor: const Color(0xFFF7F8FA), // 更柔和的灰背景
       body: NestedScrollView(
+        controller: _scrollController,
         headerSliverBuilder: (context, innerBoxIsScrolled) {
           return [
             // 1. 顶部导航栏 (Logo + Tab)
@@ -175,13 +196,16 @@ class _ModernHomeScreenState extends State<ModernHomeScreen> with SingleTickerPr
                 Padding(
                   padding: const EdgeInsets.only(left: 16, right: 16),
                   child: Center(
-                    child: Text(
-                      '亿合',
-                      style: const TextStyle(
-                        color: AppTheme.textPrimary,
-                        fontWeight: FontWeight.w400,
-                        fontSize: 20,
-                        letterSpacing: -0.5,
+                    child: Opacity(
+                      opacity: _titleOpacity,
+                      child: Text(
+                        '亿合',
+                        style: const TextStyle(
+                          color: AppTheme.textPrimary,
+                          fontWeight: FontWeight.w400,
+                          fontSize: 20,
+                          letterSpacing: -0.5,
+                        ),
                       ),
                     ),
                   ),

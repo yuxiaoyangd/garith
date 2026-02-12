@@ -1,3 +1,5 @@
+import '../utils/date_time_utils.dart';
+
 class Intent {
   final int id;
   final int projectId;
@@ -42,7 +44,7 @@ class Intent {
       expect: json['expect'],
       contact: json['contact'],
       status: json['status'],
-      createdAt: DateTime.parse(json['created_at']),
+      createdAt: parseServerDateTime(json['created_at']),
       projectTitle: json['project_title'],
       projectField: json['project_field'],
       projectStage: json['project_stage'],
